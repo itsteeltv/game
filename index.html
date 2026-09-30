@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mini Arcade — des bornes dans ton navigateur</title>
+<meta name="description" content="Des bornes d'arcade jouables directement dans le navigateur. Rien à installer, aucun compte, tes scores restent sur ta machine.">
+<meta name="theme-color" content="#0B0A0D">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 20 24%22><rect x=%221%22 y=%221%22 width=%2218%22 height=%2222%22 rx=%222%22 fill=%22%23FF4D1F%22/><rect x=%224%22 y=%225%22 width=%2212%22 height=%229%22 rx=%221%22 fill=%22%230B0A0D%22/><rect x=%225%22 y=%2217%22 width=%2210%22 height=%222%22 rx=%221%22 fill=%22%230B0A0D%22/></svg>">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<a class="skip-link" href="#app">Aller au contenu</a>
+
+<header class="site-header">
+  <div class="header-inner">
+    <a href="#/" class="logo" aria-label="Mini Arcade, accueil">
+      <svg viewBox="0 0 20 24" aria-hidden="true">
+        <rect x="1" y="1" width="18" height="22" rx="2" fill="var(--flame)"/>
+        <rect x="4" y="5" width="12" height="9" rx="1" fill="var(--bg)"/>
+        <rect x="5" y="17" width="10" height="2" rx="1" fill="var(--bg)"/>
+      </svg>
+      <span class="logo-word">Mini Arcade</span>
+    </a>
+
+    <nav class="main-nav" aria-label="Navigation principale">
+      <a href="#/" data-route="/">Accueil</a>
+      <a href="#/games" data-route="/games">Bornes</a>
+      <a href="#/scores" data-route="/scores">Scores</a>
+      <a href="#/settings" data-route="/settings">Réglages</a>
+      <a href="#/about" data-route="/about">À propos</a>
+    </nav>
+
+    <div class="header-actions">
+      <button id="sound-toggle" class="icon-btn" type="button" aria-pressed="true" aria-label="Couper le son">🔊</button>
+      <button id="theme-toggle" class="icon-btn" type="button" aria-label="Passer en thème clair">◐</button>
+      <a class="icon-btn" href="https://github.com/" target="_blank" rel="noopener noreferrer" aria-label="Code source sur GitHub">↗</a>
+    </div>
+  </div>
+</header>
+
+<main id="app" tabindex="-1"></main>
+
+<footer class="site-footer">
+  <p><span id="footer-count">—</span> · aucun serveur · aucun tracker · scores stockés sur ta machine</p>
+</footer>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
