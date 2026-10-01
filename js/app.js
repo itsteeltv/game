@@ -2,9 +2,9 @@ import { GAMES, getGame, stars, glyphSVG } from './catalog.js';
 import {
   getSettings, setSettings, saveScore, getHighScores, getBestLabel, getAnyBest,
   getDifficulty, setDifficulty, markPlayed, hasPlayed, getLastGame,
-  resetAllData, setLastGame, LEVELS, levelName,
+  resetAllData, setLastGame, LEVELS, levelName, renameScore,
 } from './storage.js';
-import { sfx, beep } from './audio.js';
+import { sfx, beep, SONGS, playMusic, stopMusic, setMusicRate } from './audio.js';
 
 const app = document.getElementById('app');
 const themeBtn = document.getElementById('theme-toggle');
@@ -87,16 +87,23 @@ function art(g) {
     </span>`;
 }
 
-/** A game card. The whole tile is the link — one tap, one game. */
+/** A little arcade cabinet: lit marquee with the name, the game's screen, a
+    control panel with the Jouer button. The whole machine is the link. */
 function cabTile(g) {
   const d = getDifficulty(g.id);
   const best = getBestLabel(g.id, d);
   return `
-    <a class="tile" href="#/game/${g.id}" style="--ink: ${g.ink}" aria-label="Jouer à ${esc(g.name)}">
-      ${art(g)}
-      <span class="tile-info">
-        <span class="tile-name">${esc(g.name)}${hasPlayed(g.id) ? '<i class="played" aria-hidden="true"></i>' : ''}</span>
-        <span class="tile-meta">${esc(g.category)} · ${best === null ? stars(g.difficulty) : `record ${esc(fmtScore(best))}`}</span>
+    <a class="cab" href="#/game/${g.id}" style="--ink: ${g.ink}" aria-label="Jouer à ${esc(g.name)}">
+      <span class="cab-marquee">${esc(g.name)}</span>
+      <span class="cab-bezel">${art(g)}</span>
+      <span class="cab-panel" aria-hidden="true">
+        <span class="cab-stick"></span>
+        <span class="cab-dots"><i></i><i></i></span>
+        <span class="cab-play">Jouer</span>
+      </span>
+      <span class="cab-base">
+        <span class="cab-meta">${esc(g.category)} · ${best === null ? stars(g.difficulty) : `record ${esc(fmtScore(best))}`}</span>
+        ${hasPlayed(g.id) ? '<i class="played" aria-hidden="true"></i>' : ''}
       </span>
     </a>
   `;
@@ -138,7 +145,7 @@ function renderHome() {
         <span class="eyebrow">${bornes()} · rien à installer</span>
         <h1 class="page-title">Une salle d’arcade dans ton navigateur</h1>
         <p class="intro-lede">
-          ${COUNT} classiques réécrits de zéro — Pong, Tetris, Démineur, Serpent…
+          ${COUNT} bornes, de Pong (1972) à Doom (1993) — Tetris, Galaxie, Astéroïdes, Mille-pattes…
           Tu choisis une borne, elle se charge en une seconde, tu joues.
           Au clavier sur ordinateur, avec les commandes à l’écran sur téléphone.
         </p>
@@ -293,6 +300,7 @@ function renderScores() {
           ${list.map((row, i) => `
             <tr>
               <td class="rank">${i + 1}</td>
+              <td class="who">${esc(row.name ?? '—')}</td>
               <td class="val">${esc(fmtScore(row.display ?? row.score))}</td>
               <td class="when">${fmtDate(row.date)}</td>
             </tr>
@@ -329,6 +337,14 @@ function renderSettings() {
         <span class="switch"><input type="checkbox" id="set-sfx" ${s.sfx ? 'checked' : ''}><span class="slider"></span></span>
       </div>
       <div class="settings-row">
+        <span class="label"><b>Musique</b><span>Airs chiptune joués par certaines bornes, qui accélèrent avec le niveau.</span></span>
+        <span class="switch"><input type="checkbox" id="set-music" ${s.music ? 'checked' : ''}><span class="slider"></span></span>
+      </div>
+      <div class="settings-row">
+        <span class="label"><b>Écran cathodique</b><span>Lignes de balayage et verre bombé, comme sur la borne.</span></span>
+        <span class="switch"><input type="checkbox" id="set-crt" ${s.crt ? 'checked' : ''}><span class="slider"></span></span>
+      </div>
+      <div class="settings-row">
         <label class="label" for="set-volume"><b>Volume</b><span id="vol-read" class="data">${Math.round(s.volume * 100)} %</span></label>
         <input type="range" id="set-volume" min="0" max="1" step="0.05" value="${s.volume}">
       </div>
@@ -351,6 +367,8 @@ function renderSettings() {
     setSettings({ sfx: e.target.checked });
     applySettings();
   });
+  app.querySelector('#set-music').addEventListener('change', (e) => setSettings({ music: e.target.checked }));
+  app.querySelector('#set-crt').addEventListener('change', (e) => setSettings({ crt: e.target.checked }));
   app.querySelector('#set-volume').addEventListener('input', (e) => {
     const v = parseFloat(e.target.value);
     setSettings({ volume: v });
@@ -379,11 +397,18 @@ function renderAbout() {
     <div class="prose">
       <p>Mini Arcade est un site entièrement statique : pas de serveur, pas de base de données, pas de compte. Tout tourne dans ton navigateur, et les scores vivent dans le <code>localStorage</code> de ta machine.</p>
 
+      <h2>Sur téléphone</h2>
+      <p>Installe le site comme une appli : sur iPhone, <b>Partager → Sur l'écran d'accueil</b> ; sur Android, <b>menu → Installer l'application</b>. Il s'ouvre alors en plein écran et marche même sans réseau. Tourne le téléphone pour jouer en mode console portable.</p>
+
+      <h2>Freedoom et le moteur de Doom</h2>
+      <p>La borne Freedoom fait tourner le vrai moteur de <i>Doom</i> (1993), dont id Software a publié le code source : ici la version <a href="https://github.com/ozkl/doomgeneric" target="_blank" rel="noopener noreferrer">doomgeneric</a>, sous licence GNU GPL v2, compilée en WebAssembly. Les modifications pour le navigateur sont dans <code>tools/doom/</code> de ce site ; le texte de la licence est fourni avec le moteur (<code>js/games/doom/ENGINE-LICENSE.txt</code>).</p>
+      <p>Les niveaux, monstres, sons et musiques sont ceux de <a href="https://freedoom.github.io/" target="_blank" rel="noopener noreferrer">Freedoom</a> (licence BSD, <code>FREEDOOM-COPYING.txt</code>) : un jeu complet, libre et gratuit. Si tu possèdes le <i>Doom</i> original, « Charger mon DOOM.WAD » le lance à la place : le fichier est lu sur ton appareil et n’est jamais envoyé nulle part. DOOM est une marque de ses propriétaires ; ce site n’y est pas affilié.</p>
+
       <h2>Vie privée</h2>
       <p>Aucune collecte, aucun tracker, aucune dépendance externe. Rien ne sort du navigateur — et « Effacer les données locales », dans les réglages, efface vraiment tout.</p>
 
       <h2>Les graphismes</h2>
-      <p>Chaque borne a sa couleur d'encre et son pictogramme, dessinés pour ce site. Rien n'est repris des jeux d'origine : ce sont des hommages au principe, pas des copies.</p>
+      <p>Chaque borne reprend les règles et l'ambiance de son époque — vitesse qui monte, sons synthétisés, initiales au tableau des scores — mais sprites, labyrinthe et sons sont faits pour ce site. Des hommages au principe, pas des copies. Seule musique reprise : <i>Korobeiniki</i>, chanson populaire russe du XIXᵉ siècle, dans le domaine public.</p>
 
       <h2>Ajouter une borne</h2>
       <p>Un jeu est un module autonome de <code>js/games/</code> qui exporte <code>createGame(canvas, host)</code> et renvoie <code>start</code>, <code>togglePause</code>, <code>input</code> et <code>destroy</code>. Il reçoit <code>host.onStats</code> pour l'afficheur, <code>host.onGameOver</code> pour la fin de partie et <code>host.sfx</code> pour le son.</p>
@@ -410,20 +435,25 @@ function renderGamePage(id) {
         <div class="play-bar">
           <a class="back-link" href="#/games" aria-label="Toutes les bornes">Bornes</a>
           <h1 class="play-title">${esc(game.name)}</h1>
+          ${document.fullscreenEnabled ? `<button class="btn btn-sm btn-icon" type="button" id="fs-btn" aria-label="Plein écran">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>
+          </button>` : ''}
           <button class="btn btn-sm" type="button" id="pause-btn">Pause</button>
         </div>
 
-        <div class="screen" id="screen">
+        <div class="screen${getSettings().crt ? ' crt' : ''}" id="screen">
           <canvas id="game-canvas" width="480" height="360" aria-label="Zone de jeu ${esc(game.name)}"></canvas>
           <div class="game-overlay" id="overlay">
             <p class="overlay-badge" id="overlay-badge" hidden>Nouveau record</p>
             <p class="overlay-title" id="overlay-title">Prêt ?</p>
             <p id="overlay-text">${esc(game.description)}</p>
             <button class="btn btn-primary" type="button" id="overlay-btn">Démarrer</button>
+            ${game.filePicker ? `<label class="btn file-btn">${esc(game.filePicker.label)}
+              <input type="file" id="file-input" accept="${esc(game.filePicker.accept)}" hidden></label>` : ''}
           </div>
         </div>
 
-        <dl class="readout">
+        <dl class="readout"${game.custom ? ' hidden' : ''}>
           <div><dt>Score</dt><dd id="stat-score">0</dd></div>
           <div><dt>Niveau</dt><dd id="stat-level">1</dd></div>
           <div id="lives-wrap" hidden><dt>${esc(game.livesLabel || 'Vies')}</dt><dd id="stat-lives">—</dd></div>
@@ -434,7 +464,7 @@ function renderGamePage(id) {
       </div>
 
       <div class="play-options">
-        ${diffControl(id, 'game', diff)}
+        ${game.custom ? '' : diffControl(id, 'game', diff)}
         <button class="btn" type="button" id="restart-btn">Recommencer</button>
       </div>
 
@@ -475,15 +505,40 @@ function renderGamePage(id) {
   let controller = null;
   let paused = false;
   let finished = false;
+  let lastLives = null;
+  let pickedFile = null;   // a game's own data file (Doom: the player's WAD), kept for restarts
+
+  // Era touches: a chiptune that speeds up with the level, and the screen kept awake.
+  const song = game.music && SONGS[game.music];
+  const mineToken = renderToken;
+  let musicRate = 1;
+  let wake = null;
+  function stayAwake(on) {
+    if (!on) { wake?.release().catch(() => {}); wake = null; return; }
+    navigator.wakeLock?.request('screen')
+      .then((l) => { if (finished || paused || mineToken !== renderToken) l.release(); else wake = l; })
+      .catch(() => {});
+  }
 
   function onStats({ score, level, lives } = {}) {
     if (score !== undefined) statScore.textContent = fmtScore(score);
-    if (level !== undefined) statLevel.textContent = level;
-    if (lives !== undefined) { livesWrap.hidden = false; statLives.textContent = lives; }
+    if (level !== undefined) {
+      statLevel.textContent = level;
+      musicRate = Math.min(1.6, 1 + (Number(level) - 1) * 0.04);
+      if (song) setMusicRate(musicRate);
+    }
+    if (lives !== undefined) {
+      livesWrap.hidden = false;
+      statLives.textContent = lives;
+      // A buzz when a life goes — the one moment worth a haptic (Android only).
+      if (!game.livesLabel && lastLives !== null && lives < lastLives) navigator.vibrate?.(40);
+      lastLives = lives;
+    }
   }
 
-  function showOverlay(title, text, btnLabel, onClick, record = false) {
-    badge.hidden = !record;
+  function showOverlay(title, text, btnLabel, onClick, badgeText = null) {
+    badge.hidden = !badgeText;
+    if (badgeText) badge.textContent = badgeText;
     overlayTitle.textContent = title;
     overlayText.innerHTML = text;
     overlayBtn.textContent = btnLabel;
@@ -495,19 +550,43 @@ function renderGamePage(id) {
     finished = true;
     paused = false;
     pauseBtn.textContent = 'Pause';
-    const isRecord = saveScore(id, score, game.higherIsBetter, display, diff);
+    stopMusic();
+    stayAwake(false);
+    navigator.vibrate?.(won ? [30, 60, 30] : 90);
+    const initials = getSettings().initials || 'AAA';
+    const res = saveScore(id, score, game.higherIsBetter, display, diff, initials);
     markPlayed(id);
     const b = getBestLabel(id, diff);
     statBest.textContent = b === null ? '—' : fmtScore(b);
     if (won) sfx.win(); else sfx.gameover();
+
+    // Made the table: sign it with three letters, like on the cabinet.
+    const sign = res.rank < 0 ? '' : `
+      <label class="initials">
+        <span>${res.record ? 'Signe ton record' : `Classé n°${res.rank + 1}`}</span>
+        <input id="initials" value="${esc(initials)}" maxlength="3" autocomplete="off"
+               autocapitalize="characters" spellcheck="false" enterkeyhint="done"
+               aria-label="Tes initiales, trois caractères">
+      </label>`;
     showOverlay(
       won ? 'Gagné' : 'Partie terminée',
       `<span class="final-score">${esc(fmtScore(display ?? score))}</span>
-       <span class="overlay-sub">${esc(levelName(diff))}</span>`,
+       <span class="overlay-sub">${esc(levelName(diff))}</span>${sign}`,
       'Rejouer',
       start,
-      isRecord,
+      res.record ? 'Nouveau record' : res.rank >= 0 ? 'Top 5' : null,
     );
+
+    const field = overlay.querySelector('#initials');
+    if (!field) return;
+    field.addEventListener('input', () => {
+      field.value = field.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 3);
+      if (!field.value) return;
+      renameScore(id, diff, res.date, field.value);
+      setSettings({ initials: field.value });
+    });
+    field.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); overlayBtn.focus(); } });
+    if (!coarse) { field.focus(); field.select(); }   // no surprise keyboard on phones
   }
 
   async function start() {
@@ -522,24 +601,70 @@ function renderGamePage(id) {
     if (mine !== renderToken) return; // navigated away while the module loaded
 
     controller?.destroy();
-    controller = createGame(canvas, { onStats, onGameOver, sfx, tone: beep }, { difficulty: diff });
+    lastLives = null;
+    musicRate = 1;
+    controller = createGame(canvas, { onStats, onGameOver, sfx, tone: beep }, { difficulty: diff, file: pickedFile });
     fit(); // each game sets its own canvas size
     controller.start();
+    if (song) playMusic(song, musicRate);
+    stayAwake(true);
     markPlayed(id);
   }
 
-  function setPaused(next) {
+  function setPaused() {
     if (!controller || finished) return;
     paused = controller.togglePause();
     pauseBtn.textContent = paused ? 'Reprendre' : 'Pause';
+    stayAwake(!paused);
     if (paused) {
+      stopMusic();
       showOverlay('Pause', 'La partie reprend là où tu l\'as laissée.', 'Reprendre', () => setPaused());
     } else {
+      if (song) playMusic(song, musicRate);
       overlay.hidden = true;
     }
   }
 
-  overlayBtn.addEventListener('click', start);
+  // Switching apps on a phone (or tabs) pauses the run instead of losing it.
+  const onVisibility = () => { if (document.hidden && controller && !finished && !paused) setPaused(); };
+  document.addEventListener('visibilitychange', onVisibility);
+
+  app.querySelector('#fs-btn')?.addEventListener('click', () => {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    else app.querySelector('.play').requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
+  });
+
+  /* Swipes on the screen, for games that declare them: the gesture is the d-pad.
+     `swipe: { down: 'action', tap: 'up' }` remaps a direction or adds a tap. */
+  if (game.swipe) {
+    const map = typeof game.swipe === 'object' ? game.swipe : {};
+    let from = null;
+    screenEl.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' || !overlay.hidden || !controller) return;
+      from = { id: e.pointerId, x: e.clientX, y: e.clientY };
+    });
+    screenEl.addEventListener('pointerup', (e) => {
+      if (!from || e.pointerId !== from.id) return;
+      const dx = e.clientX - from.x, dy = e.clientY - from.y;
+      from = null;
+      let a;
+      if (Math.max(Math.abs(dx), Math.abs(dy)) < 18) a = map.tap;
+      else {
+        const dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+        a = map[dir] ?? dir;
+      }
+      if (!a || !controller || paused || finished) return;
+      controller.input(a, true);
+      controller.input(a, false);
+    });
+  }
+
+  // One handler, swapped by showOverlay: Démarrer, Reprendre and Rejouer each do one thing.
+  overlayBtn.onclick = () => start();
+  app.querySelector('#file-input')?.addEventListener('change', (e) => {
+    pickedFile = e.target.files[0] || null;
+    if (pickedFile) start();
+  });
   pauseBtn.addEventListener('click', () => setPaused());
 
   // Changing difficulty restarts: a run half-played on two settings means nothing.
@@ -605,6 +730,8 @@ function renderGamePage(id) {
   };
 
   function onKey(e) {
+    if (e.target.closest?.('input')) return;   // typing initials, not playing
+    if (controller?.ownsKeyboard && !finished) return;   // Doom reads the whole keyboard itself
     if (e.key === 'Escape') {
       if (e.type === 'keydown') setPaused();
       return;
@@ -622,7 +749,11 @@ function renderGamePage(id) {
     destroy() {
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('keyup', onKey);
+      document.removeEventListener('visibilitychange', onVisibility);
       resizer.disconnect();
+      stopMusic();
+      stayAwake(false);
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
       controller?.destroy();
     },
   };
@@ -645,6 +776,10 @@ function route() {
   window.scrollTo(0, 0);   // a game opened from deep in the grid must start at its stage
 }
 
+history.scrollRestoration = 'manual';   // a reloaded game page starts at its stage, not mid-scroll
 window.addEventListener('hashchange', route);
 applySettings();
 route();
+
+// Installable and playable offline. Needs HTTPS (GitHub Pages) or localhost.
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

@@ -28,7 +28,10 @@ export function createGame(canvas, host = {}, opts = {}) {
   let pScore = 0, aScore = 0, rally = 0, serveWait = 0;
   let paused = false, running = false, rafId = null, last = 0, acc = 0;
 
-  const beep = (n) => { if (!autoplay) host.sfx?.[n]?.(); };
+  // The three tones of the 1972 cabinet: paddle, wall, point.
+  const TONES = { hit: [459, 0.04], move: [226, 0.02], score: [490, 0.25] };
+  const beep = (n) => { if (!autoplay) host.tone?.({ freq: TONES[n][0], duration: TONES[n][1], type: 'square', gain: 0.14 }); };
+  let aim = null;   // finger or mouse y: the paddle follows it, like the original knob
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
   function serve(dir) {
@@ -66,6 +69,7 @@ export function createGame(canvas, host = {}, opts = {}) {
       aiTrack(player, 3.2, 12);
       aiTrack(ai, 3.0, 15);
     } else {
+      if (aim !== null) player.y = aim - PH / 2;
       if (keys.up) player.y -= 6.5;
       if (keys.down) player.y += 6.5;
       player.y = clamp(player.y, 0, H - PH);
@@ -109,12 +113,10 @@ export function createGame(canvas, host = {}, opts = {}) {
     ctx.fillStyle = '#08070A';
     ctx.fillRect(0, 0, W, H);
 
-    ctx.fillStyle = 'rgba(245,242,234,0.16)';
-    for (let y = 6; y < H; y += 18) ctx.fillRect(W / 2 - 1, y, 2, 10);
-
+    // Everything in one white, as the 1972 screen had nothing else to give.
     ctx.fillStyle = '#F5F2EA';
+    for (let y = 4; y < H; y += 16) ctx.fillRect(W / 2 - 2, y, 4, 8);
     ctx.fillRect(0, ai.y, PW, PH);
-    ctx.fillStyle = '#FF4D1F';
     ctx.fillRect(W - PW, player.y, PW, PH);
 
     if (serveWait <= 0 || Math.floor(serveWait / 6) % 2 === 0) {
@@ -122,13 +124,32 @@ export function createGame(canvas, host = {}, opts = {}) {
       ctx.fillRect(ball.x - R, ball.y - R, R * 2, R * 2);
     }
 
-    ctx.font = '600 28px ui-monospace, Consolas, monospace';
-    ctx.textBaseline = 'top';
-    ctx.fillStyle = 'rgba(245,242,234,0.3)';
-    ctx.textAlign = 'right'; ctx.fillText(String(aScore), W / 2 - 20, 16);
-    ctx.textAlign = 'left'; ctx.fillText(String(pScore), W / 2 + 20, 16);
-    ctx.textAlign = 'start';
+    number(aScore, W / 2 - 40, 'right');
+    number(pScore, W / 2 + 40, 'left');
   }
+
+  // Chunky block digits, 3 × 5 cells of 7 px.
+  const DIGITS = ['111101101101111', '001001001001001', '111001111100111', '111001111001111', '101101111001001',
+    '111100111001111', '111100111101111', '111001001001001', '111101111101111', '111101111001111'];
+  function number(n, x, align) {
+    const s = String(n), cell = 7, w = cell * 3, gap = 8;
+    const total = s.length * w + (s.length - 1) * gap;
+    let x0 = align === 'right' ? x - total : x;
+    for (const ch of s) {
+      [...DIGITS[ch]].forEach((bit, i) => {
+        if (bit === '1') ctx.fillRect(x0 + (i % 3) * cell, 18 + Math.floor(i / 3) * cell, cell, cell);
+      });
+      x0 += w + gap;
+    }
+  }
+
+  const toY = (e) => {
+    const b = canvas.getBoundingClientRect();
+    return (e.clientY - b.top) * (H / b.height);
+  };
+  const onMove = (e) => { if (e.pointerType === 'mouse' || e.buttons) aim = toY(e); };
+  const onDown = (e) => { e.preventDefault(); aim = toY(e); };
+  const onUp = (e) => { if (e.pointerType !== 'mouse') aim = null; };
 
   // Physics is tuned per 60 Hz frame: step at a fixed rate so a 120 Hz phone doesn't play twice as fast.
   const STEP = 1000 / 60;
@@ -143,7 +164,13 @@ export function createGame(canvas, host = {}, opts = {}) {
 
   return {
     start() {
-      pScore = aScore = 0; paused = false; running = true;
+      pScore = aScore = 0; paused = false; running = true; aim = null;
+      if (!autoplay) {
+        canvas.addEventListener('pointermove', onMove);
+        canvas.addEventListener('pointerdown', onDown);
+        canvas.addEventListener('pointerup', onUp);
+        canvas.addEventListener('pointercancel', onUp);
+      }
       player.y = ai.y = H / 2 - PH / 2;
       serve(autoplay && Math.random() < 0.5 ? -1 : 1);
       report(); draw();
@@ -155,7 +182,15 @@ export function createGame(canvas, host = {}, opts = {}) {
     input(a, down) {
       if (a === 'up') keys.up = down;
       if (a === 'down') keys.down = down;
+      if (down) aim = null;   // a key press takes the paddle back from the mouse
     },
-    destroy() { running = false; cancelAnimationFrame(rafId); },
+    destroy() {
+      running = false;
+      cancelAnimationFrame(rafId);
+      canvas.removeEventListener('pointermove', onMove);
+      canvas.removeEventListener('pointerdown', onDown);
+      canvas.removeEventListener('pointerup', onUp);
+      canvas.removeEventListener('pointercancel', onUp);
+    },
   };
 }

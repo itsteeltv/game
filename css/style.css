@@ -185,6 +185,11 @@ kbd {
   box-shadow: inset 0 -0.5px 0 var(--material-edge);
 }
 
+@media (display-mode: standalone) {
+  :root { --standalone: 1; }
+  .site-header { padding-top: env(safe-area-inset-top); }
+}
+
 .header-inner {
   max-width: 1180px;
   height: var(--header-h);
@@ -421,37 +426,173 @@ kbd {
 .page-head { margin: 0 0 1.75rem; }
 .page-head .eyebrow { display: block; margin-bottom: 0.55rem; }
 
-/* --- Game tiles ---------------------------------------------------------- */
+/* --- Game cabinets: every tile is a little arcade machine ------------------ */
+/* Backlit marquee with the name, the game's own screen in a bezel, a control
+   panel with a stick and the Jouer button, and a coin door. The whole machine
+   is one link — one tap, one game. */
 .tile-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
-  gap: clamp(1.1rem, 2.4vw, 1.6rem) clamp(0.8rem, 2vw, 1.3rem);
+  grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr));
+  gap: clamp(1.4rem, 3vw, 2rem) clamp(0.9rem, 2.4vw, 1.5rem);
+  padding-top: 0.4rem;
 }
 
-.tile { display: flex; flex-direction: column; gap: 0.65rem; min-width: 0; -webkit-touch-callout: none; }
-.tile .art {
-  border-radius: var(--r);
-  box-shadow: var(--shadow);
+.cab {
+  --body: #1A1820;
+  --side: color-mix(in srgb, var(--ink) 55%, #0A0A0C);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 0 7px 0;
+  border-radius: 10px 10px 4px 4px;
+  /* The cabinet's side panels peek out in the game's colour. */
+  background:
+    linear-gradient(to right, var(--side) 0 5px, transparent 5px calc(100% - 5px), var(--side) calc(100% - 5px)),
+    var(--body);
+  box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  color: #F5F2EA;
+  -webkit-touch-callout: none;
   transition: transform 460ms var(--ease), box-shadow 460ms var(--ease);
 }
-.tile:active .art { transform: scale(0.965); transition-duration: 120ms; }
 
-.tile-info { display: flex; flex-direction: column; gap: 0.15rem; padding: 0 0.15rem; min-width: 0; }
-.tile-name {
+/* Marquee: lit from behind, it spills its ink onto the cabinet. */
+.cab-marquee {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 3.1rem;
+  margin: 0 -7px;
+  padding: 0.45rem 0.7rem;
+  border-radius: 10px 10px 0 0;
+  background:
+    radial-gradient(circle at center, rgba(0, 0, 0, 0.18) 1px, transparent 1.3px) 0 0 / 4px 4px,
+    linear-gradient(to bottom, color-mix(in srgb, var(--ink) 80%, #FFFFFF), var(--ink));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), inset 0 -3px 0 rgba(0, 0, 0, 0.25), 0 8px 22px -8px var(--ink);
+  color: #0A0A0C;
+  font: 800 clamp(0.95rem, 2.2vw, 1.15rem)/1.05 var(--font-display);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  text-align: center;
+  text-wrap: balance;
+}
+
+/* Screen in its bezel, tilted back a touch like the real glass. */
+.cab-bezel {
+  margin: 0.55rem 0 0;
+  padding: 6px;
+  border-radius: 8px;
+  background: #050506;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+.cab .art { border-radius: 5px; }
+.cab .art::after {   /* curved-glass sheen on top of the ink glow */
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.09) 0 22%, transparent 22.5%),
+    linear-gradient(to top, color-mix(in srgb, var(--ink) 22%, transparent), transparent 42%);
+}
+
+/* Control panel: wider than the body, like the shelf it is. */
+.cab-panel {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  font: 600 1rem/1.25 var(--font);
-  letter-spacing: -0.015em;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0.6rem -11px 0;
+  padding: 0.55rem 0.7rem 0.55rem 0.9rem;
+  border-radius: 6px 6px 3px 3px;
+  background: linear-gradient(to bottom, #2C2934, #201E27);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 6px 10px -6px rgba(0, 0, 0, 0.8);
 }
-/* Already tried: a small check, not a badge competing with the art. */
-.played {
+.cab-stick {   /* ball-top joystick */
+  position: relative;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+}
+.cab-stick::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  width: 4px;
+  height: 12px;
+  margin-left: -2px;
+  border-radius: 2px;
+  background: #8E8A98;
+}
+.cab-stick::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 13px;
+  height: 13px;
+  margin-left: -6.5px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #FFFFFF 0 15%, var(--ink) 45%);
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.6);
+}
+.cab-dots { display: flex; gap: 5px; margin-right: auto; }
+.cab-dots i { width: 9px; height: 9px; border-radius: 50%; background: #3A3646; box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.5); }
+.cab-dots i:first-child { background: var(--ink); }
+
+/* The Jouer button: a big round-ended arcade button that sinks when pressed. */
+.cab-play {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 32px;
+  padding: 0 0.95rem 0 0.8rem;
+  border-radius: 999px;
+  background: var(--ink);
+  color: #0A0A0C;
+  font: 800 0.8rem/1 var(--font);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  box-shadow: 0 3px 0 color-mix(in srgb, var(--ink) 45%, #000000), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  transition: transform 140ms var(--ease), box-shadow 140ms var(--ease);
+}
+.cab-play::before {   /* play triangle */
+  content: "";
+  border-style: solid;
+  border-width: 5px 0 5px 8px;
+  border-color: transparent transparent transparent currentColor;
+}
+
+/* Coin door: two lit slots and the game's genre and record. */
+.cab-base {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 0.6rem 0.25rem 0.7rem;
+  font-size: 0.74rem;
+  color: rgba(235, 235, 245, 0.62);
+  font-variant-numeric: tabular-nums;
+}
+.cab-base::before {
+  content: "";
   flex-shrink: 0;
   width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--fill);
+  height: 18px;
+  border-radius: 2px;
+  background:
+    linear-gradient(#FF4D1F, #FF4D1F) 4px 3px / 6px 2px no-repeat,
+    linear-gradient(#FF4D1F, #FF4D1F) 4px 11px / 6px 2px no-repeat,
+    #0A0A0C;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+.cab-meta { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+/* Already tried: a small check on the coin door. */
+.played {
+  flex-shrink: 0;
   position: relative;
+  width: 14px;
+  height: 14px;
+  margin-left: auto;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
 }
 .played::after {
   content: "";
@@ -460,35 +601,33 @@ kbd {
   top: 2.6px;
   width: 3.5px;
   height: 6.5px;
-  border: solid var(--label-2);
+  border: solid rgba(235, 235, 245, 0.75);
   border-width: 0 1.6px 1.6px 0;
   transform: rotate(45deg);
 }
-.tile-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  font-size: 0.8125rem;
-  color: var(--label-2);
-  font-variant-numeric: tabular-nums;
-}
-.tile-meta::before {
-  content: "";
-  flex-shrink: 0;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--ink);
-}
+
+/* Feedback on the press itself: the whole machine gives, the button sinks. */
+.cab:active { transform: scale(0.97); transition-duration: 120ms; }
+.cab:active .cab-play { transform: translateY(3px); box-shadow: 0 0 0 transparent, inset 0 1px 0 rgba(255, 255, 255, 0.3); }
+.cab:focus-visible { outline-offset: 4px; }
 
 @media (hover: hover) and (pointer: fine) {
-  .tile:hover .art { transform: translateY(-4px); box-shadow: var(--shadow-lift), 0 24px 50px -30px var(--ink); }
-  .tile:hover .art img { transform: scale(1.035); }
-  .tile:active .art { transform: translateY(-1px) scale(0.975); }
+  .cab:hover { transform: translateY(-5px); box-shadow: var(--shadow-lift), 0 30px 60px -36px var(--ink); }
+  .cab:hover .art img { transform: scale(1.04); }
+  .cab:hover .cab-play { filter: brightness(1.1); }
+  .cab:active { transform: translateY(-2px) scale(0.98); }
   .feature:hover .art img { transform: scale(1.03); }
+}
+
+:root[data-theme="light"] .cab { --body: #23212A; }
+
+@media (max-width: 420px) {
+  .cab { padding: 0 5px; }
+  .cab-marquee { min-height: 2.7rem; margin: 0 -5px; font-size: 0.86rem; }
+  .cab-panel { margin: 0.5rem -8px 0; padding: 0.45rem 0.5rem; }
+  .cab-dots { display: none; }
+  .cab-play { min-height: 30px; padding: 0 0.75rem 0 0.65rem; font-size: 0.74rem; }
+  .cab-base { font-size: 0.68rem; }
 }
 
 .empty-state { grid-column: 1 / -1; padding: 3rem 0; text-align: center; color: var(--label-2); }
@@ -632,6 +771,70 @@ kbd {
   text-transform: uppercase;
 }
 .overlay-badge[hidden] { display: none; }
+
+/* Cathode-ray glass: scanlines, a soft bloom and a vignette where the tube curves away.
+   It sits over the overlay too — the message is on the same glass as the game. */
+.screen.crt::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    radial-gradient(ellipse 120% 110% at 50% 50%, transparent 58%, rgba(0, 0, 0, 0.55) 100%),
+    repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.28) 0 1px, transparent 1px 3px);
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.6), inset 0 0 2px rgba(255, 255, 255, 0.08);
+}
+.screen.crt canvas { filter: saturate(1.15) brightness(1.06); }
+
+/* Arcade initials on the game-over screen. */
+.initials {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.9rem;
+  font: 600 0.72rem/1 var(--font);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(235, 235, 245, 0.6);
+}
+.initials input {
+  width: 6.2ch;
+  padding: 0.25rem 0 0.3rem 0.5ch;
+  border: 0;
+  border-bottom: 3px solid var(--ink);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  font: 700 2rem/1 ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+  letter-spacing: 0.5ch;
+  text-align: center;
+  text-transform: uppercase;
+  caret-color: var(--ink);
+}
+.initials input:focus { outline: none; background: rgba(255, 255, 255, 0.06); }
+
+.btn-icon { width: 34px; padding: 0; }
+.readout[hidden] { display: none; }
+.game-overlay .file-btn { margin-top: 0; background: rgba(255, 255, 255, 0.14); color: #F5F2EA; cursor: pointer; }
+
+/* Four action buttons (Doom): a 2 × 2 block, like a controller's face buttons. */
+.action-btns:has(> :nth-child(4)) { display: grid; grid-template-columns: repeat(2, auto); gap: 0.5rem; }
+.action-btns:has(> :nth-child(4)) .action-btn { width: 60px; height: 60px; font-size: 0.72rem; }
+.btn-icon svg { width: 17px; height: 17px; }
+
+/* Fullscreen: the stage takes the whole display (Android, desktop). */
+.play:fullscreen {
+  max-width: none;
+  padding: max(0.75rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(0.75rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+  background: var(--bg);
+  overflow: auto;
+}
+.play:fullscreen .play-stage { height: 100%; }
+.play:fullscreen .screen { flex: 1 1 0; height: auto; min-height: 0; }
+.play:fullscreen .play-options, .play:fullscreen .help-text { display: none; }
 
 /* Scoreboard. Positioned so it paints above the screen's glow (the screen is positioned too). */
 .readout, .dpad, .pad-row, .action-btns { position: relative; }
@@ -809,6 +1012,7 @@ kbd {
 .score-table tr:first-child td { border-top: none; }
 .score-table .rank { width: 1%; color: var(--label-2); }
 .score-table .val { font-weight: 600; }
+.score-table .who { width: 1%; padding-right: 0; font: 700 0.85rem/1 ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace; letter-spacing: 0.12em; color: var(--label-2); }
 .score-table tr:first-child .rank::after { content: ""; display: inline-block; width: 7px; height: 7px; margin-left: 0.45rem; border-radius: 50%; background: var(--ink); vertical-align: 0.1em; }
 .score-table .when { text-align: right; color: var(--label-2); font-size: 0.8rem; }
 .score-empty { margin: 0; padding: 1.2rem 1rem; font-size: 0.86rem; color: var(--label-2); }
@@ -877,6 +1081,7 @@ kbd {
   font: 700 1.2rem/1.2 var(--font-display);
   letter-spacing: -0.02em;
 }
+.prose a { color: var(--accent-text); text-decoration: underline; text-underline-offset: 2px; }
 .prose p { margin: 0 0 0.9rem; font-size: 1.02rem; line-height: 1.65; color: var(--label-2); }
 .prose code {
   padding: 0.1em 0.38em;
@@ -927,8 +1132,6 @@ kbd {
   .intro-actions .btn { flex: 1 1 auto; }
 
   .tile-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .tile-name { font-size: 0.94rem; }
-  .tile-meta { font-size: 0.76rem; }
 
   .settings-row input[type="range"] { width: 120px; }
 
@@ -945,7 +1148,7 @@ kbd {
 @media (max-width: 720px), (pointer: coarse) {
   body[data-view="game"] #app { padding-top: 0.6rem; padding-bottom: 1.5rem; }
   body[data-view="game"] .play-stage {
-    height: calc(100svh - var(--header-h) - 0.6rem);
+    height: calc(100svh - var(--header-h) - env(safe-area-inset-top) * var(--standalone, 0) - 0.6rem);
     gap: 0.6rem;
     padding-bottom: max(0.6rem, env(safe-area-inset-bottom));
   }
@@ -996,7 +1199,7 @@ kbd {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 1ms !important; }
   @keyframes arrive { from { opacity: 0; } }
-  .tile:active .art, .tile:hover .art, .tile:hover .art img, .feature:hover .art img,
+  .cab:active, .cab:hover, .cab:hover .art img, .cab:active .cab-play, .feature:hover .art img,
   .feature:active, .btn:active, .seg-btn:active, .filter-chip:active, .icon-btn:active,
   .main-nav a:active, .back-link:active,
   .pad-btn.is-down, .pad-btn:active, .action-btn.is-down, .action-btn:active { transform: none; }
@@ -1007,7 +1210,7 @@ body.no-animations *, body.no-animations *::before, body.no-animations *::after 
   animation: none !important;
   transition: none !important;
 }
-body.no-animations .tile .art, body.no-animations .art img { transform: none !important; }
+body.no-animations .cab, body.no-animations .art img { transform: none !important; }
 
 /* Reduced transparency: frost every material into a solid surface. */
 @media (prefers-reduced-transparency: reduce) {
@@ -1027,7 +1230,8 @@ body.no-animations .tile .art, body.no-animations .art img { transform: none !im
 @media (prefers-contrast: more) {
   :root { --label-2: rgba(235, 235, 245, 0.86); --sep: rgba(255, 255, 255, 0.36); --fill-2: rgba(118, 118, 128, 0.34); }
   :root[data-theme="light"] { --label-2: #3A3A3F; --sep: rgba(60, 60, 67, 0.5); --fill-2: rgba(118, 118, 128, 0.24); }
-  .tile .art, .feature, .steps li, .score-card, .settings-list, .summary-tile, .readout > div { outline: 1px solid var(--sep); }
+  .cab, .feature, .steps li, .score-card, .settings-list, .summary-tile, .readout > div { outline: 1px solid var(--sep); }
+  .screen.crt::after { display: none; }   /* scanlines cost legibility */
 }
 
 @media print {

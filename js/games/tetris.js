@@ -36,6 +36,7 @@ export function createGame(canvas, host, opts = {}) {
   let board, cur, queue, hold, holdUsed;
   let score, level, lines, combo;
   let dropAcc, lockAcc, lockResets, dasDir, dasTime, softHeld;
+  let clearing = null;   // full rows flash for a beat before they go, like the old cartridges
   let paused = false, running = false, rafId = null, last = 0, over = false;
 
   // 7-bag: each piece appears once per bag, so you're never starved of an I.
@@ -116,9 +117,18 @@ export function createGame(canvas, host, opts = {}) {
     }));
     if (top === ROWS) return finish();   // locked entirely above the ceiling: top-out
 
-    clearLines();
-    if (!running) return;
+    const full = board.map((row, y) => (row.every(Boolean) ? y : -1)).filter((y) => y >= 0);
+    if (full.length) {
+      clearing = { rows: full, t: 330 };
+      cur = null;
+      if (full.length < 4) host.sfx.clear();
+      else host.sfx.win();   // four at once gets the fanfare
+      return;
+    }
+    nextPiece();
+  }
 
+  function nextPiece() {
     cur = spawn(queue.shift());
     while (queue.length < 3) queue.push(nextName());
     holdUsed = false;
@@ -141,7 +151,7 @@ export function createGame(canvas, host, opts = {}) {
     lines += n;
     score += [0, 100, 300, 500, 800][n] * level + Math.max(0, combo) * 50 * level;
     const next = D.start + Math.floor(lines / 10);
-    if (next !== level) { level = next; host.sfx.win(); } else host.sfx.clear();
+    if (next !== level) { level = next; host.sfx.pickup(); }
     host.onStats({ score, level });
   }
 
@@ -159,6 +169,11 @@ export function createGame(canvas, host, opts = {}) {
   }
 
   function update(dt) {
+    if (clearing) {
+      clearing.t -= dt;
+      if (clearing.t <= 0) { clearing = null; clearLines(); nextPiece(); }
+      return;
+    }
     // DAS/ARR: a held direction repeats fast after a short charge, instead of
     // waiting on the OS key-repeat delay.
     if (dasDir) {
@@ -203,18 +218,20 @@ export function createGame(canvas, host, opts = {}) {
     }
 
     for (let y = 0; y < ROWS; y++) {
-      for (let x = 0; x < COLS; x++) if (board[y][x]) block(x * CELL, y * CELL, board[y][x]);
+      const flash = clearing?.rows.includes(y) && Math.floor(clearing.t / 55) % 2 === 0;
+      for (let x = 0; x < COLS; x++) if (board[y][x]) block(x * CELL, y * CELL, flash ? '#F5F2EA' : board[y][x]);
     }
 
-    const gy = ghostY();
-    ctx.strokeStyle = 'rgba(245,242,234,0.34)';
-    cur.m.forEach((row, r) => row.forEach((v, c) => {
-      if (v && gy + r >= 0) ctx.strokeRect((cur.x + c) * CELL + 1.5, (gy + r) * CELL + 1.5, CELL - 3, CELL - 3);
-    }));
-
-    cur.m.forEach((row, r) => row.forEach((v, c) => {
-      if (v && cur.y + r >= 0) block((cur.x + c) * CELL, (cur.y + r) * CELL, cur.ink);
-    }));
+    if (cur) {
+      const gy = ghostY();
+      ctx.strokeStyle = 'rgba(245,242,234,0.34)';
+      cur.m.forEach((row, r) => row.forEach((v, c) => {
+        if (v && gy + r >= 0) ctx.strokeRect((cur.x + c) * CELL + 1.5, (gy + r) * CELL + 1.5, CELL - 3, CELL - 3);
+      }));
+      cur.m.forEach((row, r) => row.forEach((v, c) => {
+        if (v && cur.y + r >= 0) block((cur.x + c) * CELL, (cur.y + r) * CELL, cur.ink);
+      }));
+    }
 
     const sx = COLS * CELL + 14;
     ctx.font = '600 10px ui-monospace, Consolas, monospace';
@@ -260,7 +277,7 @@ export function createGame(canvas, host, opts = {}) {
       board = Array.from({ length: ROWS }, () => new Array(COLS).fill(null));
       bag = []; queue = [];
       score = 0; level = D.start; lines = 0; combo = -1;
-      hold = null; holdUsed = false;
+      hold = null; holdUsed = false; clearing = null;
       dropAcc = 0; lockAcc = 0; lockResets = 0; dasDir = 0; dasTime = 0; softHeld = false;
       paused = false; running = true; over = false; last = 0;
       cur = spawn();
@@ -274,6 +291,7 @@ export function createGame(canvas, host, opts = {}) {
     setPaused(v) { paused = v; return paused; },
     input(a, down) {
       if (!running) return;
+      if (down && clearing) return;
       if (!down) {
         if (a === 'down') softHeld = false;
         if ((a === 'left' && dasDir === -1) || (a === 'right' && dasDir === 1)) { dasDir = 0; dasTime = 0; }
