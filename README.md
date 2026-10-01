@@ -20,19 +20,17 @@ marquee et dans le tableau des scores.
 
 ## Parti pris visuel
 
-Sérigraphie sur stratifié noir, pas néon. Les vraies bornes des années 80 sont des aplats
-d'encre imprimés — nombre de couleurs limité, contours francs, aucun dégradé. D'où :
+Une interface qui s'efface derrière les jeux, dans l'esprit des apps Apple :
 
-- aplats de couleur, jamais de dégradé ni de glassmorphism ;
-- une seule source de lumière justifiée : le marquee rétroéclairé, qui déborde sur l'écran ;
-- l'écran reste noir dans les deux thèmes — un écran est noir quelle que soit la pièce ;
-- `Impact` pour les marquees (chasse étroite de poster), système pour le texte, monospace
-  tabulaire pour les scores ;
-- l'interlettrage suit la taille : serré sur les gros titres, ouvert sur les petites capitales.
-
-L'élément signature est la borne elle-même : marquee, écran, panneau de contrôle. La page
-d'accueil en est une (en mode attraction, l'IA joue contre elle-même), chaque carte du
-catalogue en est une en miniature, chaque page de jeu en est une.
+- les vignettes montrent **le vrai écran de chaque jeu** (`img/games/<id>.png`, capturé
+  pendant une partie) — on choisit en voyant à quoi on va jouer ;
+- chrome translucide (`backdrop-filter`) sous lequel le contenu défile, coins continus,
+  police système, interlettrage qui se resserre quand le texte grossit ;
+- tout réagit à l'appui, jamais au relâchement ; courbes amorties sans rebond ;
+- l'écran de jeu reste noir dans les deux thèmes, et l'encre du jeu y diffuse un halo ;
+- sur téléphone : barre d'onglets sous le pouce, et la page de jeu tient dans l'écran
+  sans défilement (croix à gauche, boutons à droite). Téléphone tourné, la mise en page
+  devient celle d'une console portable : croix, écran, boutons.
 
 ## Installation
 
@@ -73,13 +71,14 @@ Aucun workflow GitHub Actions n'est requis puisqu'il n'y a pas d'étape de build
 /
 ├── index.html          # shell + header/nav
 ├── css/style.css       # thème, layout, composants
+├── img/games/          # une capture d'écran par jeu (vignettes)
 ├── js/
 │   ├── app.js          # routeur (hash-based) + rendu des pages
 │   ├── catalog.js      # registre des jeux
 │   ├── storage.js      # scores & paramètres (localStorage)
 │   ├── audio.js        # sons procéduraux (Web Audio API)
 │   └── games/
-│       ├── pong.js        # + mode attraction (IA vs IA) pour la home
+│       ├── pong.js
 │       ├── pacman.js
 │       ├── tetris.js
 │       ├── invaders.js
@@ -99,6 +98,12 @@ Aucun workflow GitHub Actions n'est requis puisqu'il n'y a pas d'étape de build
 2. Ajoute une entrée dans `js/catalog.js` : `id`, `name`, `ink` (la couleur de la borne),
    `glyph` (le pictogramme, contenu d'un `viewBox` 24×24 en `currentColor`), `category`,
    `difficulty`, `description`, `module`, `touch`.
+3. Ajoute une capture `img/games/<id>.png` du canvas en cours de partie
+   (`canvas.toBlob()` depuis la console suffit). Sans elle, la vignette affiche le `glyph`.
+
+La physique doit avancer au temps réel, pas à l'image : les écrans de téléphone à 120 Hz
+appellent `requestAnimationFrame` deux fois plus souvent. Les jeux réglés « par image »
+(Pong, Casse-Brique, Bat d'Aile, Vague Zéro, Puissance 4) avancent par pas fixes de 1/60 s.
 
 Le contrôleur doit exposer `start()`, `togglePause()` (qui **renvoie** le nouvel état, pour
 que le bouton affiche « Pause » ou « Reprendre »), `setPaused(v)`, `input(action, isDown)`
@@ -129,10 +134,11 @@ Tout est stocké dans `localStorage` sous le préfixe `arcade:` (scores, thème,
 ## Accessibilité
 
 - navigation clavier complète, lien d'évitement, focus visible, `aria-current` sur l'onglet actif ;
-- `prefers-reduced-motion` : le mode attraction se fige sur une image au lieu de tourner,
-  et les transformations sont neutralisées (interrupteur manuel « Animations » en doublon
-  dans les réglages) ;
-- `prefers-reduced-transparency` : l'en-tête devient opaque ;
-- `prefers-contrast: more` : contours renforcés, scanlines désactivées ;
-- les encres ne servent jamais de texte fin sur fond clair — elles y passent en aplat,
-  car aucune des quatre n'atteint un contraste suffisant en petit texte sur le stratifié clair.
+- `prefers-reduced-motion` : les transformations sont neutralisées (interrupteur manuel
+  « Animations » en doublon dans les réglages) ;
+- sur pointeur grossier, la page de jeu se cale sur la hauteur de l'écran, les commandes
+  tactiles restent sous les pouces et l'aide affiche la carte tactile au lieu du clavier ;
+- `prefers-reduced-transparency` : en-tête, barre d'onglets et voile de pause deviennent opaques ;
+- `prefers-contrast: more` : contours sur les cartes, libellés secondaires renforcés ;
+- les encres ne servent jamais de texte fin sur fond clair — elles y passent en aplat ;
+  l'accent en texte passe à un orange plus sombre (`--accent-text`) en thème clair.

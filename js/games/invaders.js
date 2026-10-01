@@ -255,11 +255,15 @@ export function createGame(canvas, host, opts = {}) {
     }
   }
 
+  // Movement is tuned per 60 Hz frame: step at a fixed rate so a 120 Hz phone doesn't play twice as fast.
+  const STEP = 1000 / 60;
+  let acc = 0;
   function loop(t) {
     if (!running) return;
-    const dt = Math.min(48, last ? t - last : 16);
+    acc = paused ? 0 : acc + Math.min(100, last ? t - last : STEP);
     last = t;
-    if (!paused) { update(dt); if (running) draw(); }
+    for (; acc >= STEP && running; acc -= STEP) update(STEP);
+    if (running && !paused) draw();
     rafId = requestAnimationFrame(loop);
   }
 

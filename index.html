@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Mini Arcade — des bornes dans ton navigateur</title>
 <meta name="description" content="Des bornes d'arcade jouables directement dans le navigateur. Rien à installer, aucun compte, tes scores restent sur ta machine.">
-<meta name="theme-color" content="#0B0A0D">
+<meta name="theme-color" content="#050506">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 20 24%22><rect x=%221%22 y=%221%22 width=%2218%22 height=%2222%22 rx=%222%22 fill=%22%23FF4D1F%22/><rect x=%224%22 y=%225%22 width=%2212%22 height=%229%22 rx=%221%22 fill=%22%230B0A0D%22/><rect x=%225%22 y=%2217%22 width=%2210%22 height=%222%22 rx=%221%22 fill=%22%230B0A0D%22/></svg>">
 <link rel="stylesheet" href="css/style.css">
 </head>
@@ -23,12 +23,13 @@
       <span class="logo-word">Mini Arcade</span>
     </a>
 
+    <!-- Inline in the header on wide screens; a bottom tab bar under the thumb on phones. -->
     <nav class="main-nav" aria-label="Navigation principale">
-      <a href="#/" data-route="/">Accueil</a>
-      <a href="#/games" data-route="/games">Bornes</a>
-      <a href="#/scores" data-route="/scores">Scores</a>
-      <a href="#/settings" data-route="/settings">Réglages</a>
-      <a href="#/about" data-route="/about">À propos</a>
+      <a href="#/" data-route="/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 10.5 12 3.5l8.5 7V20a1 1 0 0 1-1 1H15v-6H9v6H4.5a1 1 0 0 1-1-1z"/></svg><span>Accueil</span></a>
+      <a href="#/games" data-route="/games"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="2.5"/><rect x="8" y="6" width="8" height="6.5" rx="1"/><path d="M9.5 16.5h5"/></svg><span>Bornes</span></a>
+      <a href="#/scores" data-route="/scores"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3.5h10v5a5 5 0 0 1-10 0z"/><path d="M7 5.5H4.5a3 3 0 0 0 3 4M17 5.5h2.5a3 3 0 0 1-3 4M12 13.5v4M8 20.5h8"/></svg><span>Scores</span></a>
+      <a href="#/settings" data-route="/settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h9M18 7h2M4 17h3M12 17h8"/><circle cx="15.5" cy="7" r="2.3"/><circle cx="9.5" cy="17" r="2.3"/></svg><span>Réglages</span></a>
+      <a href="#/about" data-route="/about"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.6v.2"/></svg><span>À propos</span></a>
     </nav>
 
     <div class="header-actions">

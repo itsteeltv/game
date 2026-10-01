@@ -17,7 +17,7 @@ export function createGame(canvas, host, opts = {}) {
   const R = 5;
 
   let paddle, balls, bricks, drops, score, level, lives, stuck;
-  let paused = false, running = false, rafId = null, last = 0, over = false;
+  let paused = false, running = false, rafId = null, last = 0, acc = 0, over = false;
   const keys = { left: false, right: false };
 
   const hit = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
@@ -199,10 +199,14 @@ export function createGame(canvas, host, opts = {}) {
     }
   }
 
+  // Physics is tuned per 60 Hz frame: step at a fixed rate so a 120 Hz phone doesn't play twice as fast.
+  const STEP = 1000 / 60;
   function loop(t) {
     if (!running) return;
+    acc = paused ? 0 : acc + Math.min(100, last ? t - last : STEP);
     last = t;
-    if (!paused) { update(); if (running) draw(); }
+    for (; acc >= STEP && running; acc -= STEP) update();
+    if (running && !paused) draw();
     rafId = requestAnimationFrame(loop);
   }
 

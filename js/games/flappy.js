@@ -13,7 +13,7 @@ export function createGame(canvas, host, opts = {}) {
   ][opts.difficulty ?? 1];
 
   let bird, pipes, score, level, best, spawnX, started;
-  let paused = false, running = false, rafId = null, over = false, shake;
+  let paused = false, running = false, rafId = null, over = false, shake, last = 0, acc = 0;
 
   function addPipe() {
     const gap = Math.max(66, D.gap - score * D.tighten * 0.35);
@@ -122,9 +122,14 @@ export function createGame(canvas, host, opts = {}) {
     ctx.restore();
   }
 
-  function loop() {
+  // Physics is tuned per 60 Hz frame: step at a fixed rate so a 120 Hz phone doesn't play twice as fast.
+  const STEP = 1000 / 60;
+  function loop(t) {
     if (!running) return;
-    if (!paused) { update(); if (running) draw(); }
+    acc = paused ? 0 : acc + Math.min(100, last ? t - last : STEP);
+    last = t;
+    for (; acc >= STEP && running; acc -= STEP) update();
+    if (running && !paused) draw();
     rafId = requestAnimationFrame(loop);
   }
 

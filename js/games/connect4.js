@@ -12,7 +12,7 @@ export function createGame(canvas, host, opts = {}) {
   const D = [{ depth: 2, slip: 0.35 }, { depth: 4, slip: 0.12 }, { depth: 6, slip: 0 }][opts.difficulty ?? 1];
 
   let board, streak, score, turn, winLine, hover, thinking, msg;
-  let paused = false, running = false, rafId = null, over = false;
+  let paused = false, running = false, rafId = null, over = false, last = 0, acc = 0;
 
   const at = (c, r) => board[c][r];
   const openRow = (c) => { for (let r = ROWS - 1; r >= 0; r--) if (!board[c][r]) return r; return -1; };
@@ -226,10 +226,14 @@ export function createGame(canvas, host, opts = {}) {
     ctx.textBaseline = 'alphabetic';
   }
 
+  // Physics is tuned per 60 Hz frame: step at a fixed rate so a 120 Hz phone doesn't play twice as fast.
+  const STEP = 1000 / 60;
   function loop(t) {
     if (!running) return;
-    const dt = Math.min(48, 16);
-    if (!paused) { update(dt); if (running) draw(); }
+    acc = paused ? 0 : acc + Math.min(100, last ? t - last : STEP);
+    last = t;
+    for (; acc >= STEP && running; acc -= STEP) update(16);
+    if (running && !paused) draw();
     rafId = requestAnimationFrame(loop);
   }
 

@@ -16,8 +16,6 @@ let renderToken = 0;          // guards async work against a navigation that alr
 const COUNT = GAMES.length;
 const bornes = (n = COUNT) => `${n} borne${n > 1 ? 's' : ''}`;
 
-const prefersReducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
-
 /* --- Chrome -------------------------------------------------------------- */
 
 function applySettings() {
@@ -61,6 +59,7 @@ function render(html) {
   renderToken++;
   app.innerHTML = html;
   const route = activeRoute();
+  document.body.dataset.view = route === '/game' ? 'game' : 'page'; // phones drop the tab bar mid-game
   document.querySelectorAll('.main-nav a').forEach((a) => {
     const on = a.dataset.route === route;
     a.classList.toggle('active', on);
@@ -78,26 +77,28 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => (
 
 /* --- Cabinet partials ---------------------------------------------------- */
 
-function cabCard(g) {
+/** The game's own screen, captured from a real run (img/games/<id>.png).
+    The glyph underneath shows through if a new game has no capture yet. */
+function art(g) {
+  return `
+    <span class="art">
+      ${glyphSVG(g, 44)}
+      <img src="img/games/${g.id}.png" alt="" loading="lazy" decoding="async" onerror="this.remove()">
+    </span>`;
+}
+
+/** A game card. The whole tile is the link — one tap, one game. */
+function cabTile(g) {
   const d = getDifficulty(g.id);
   const best = getBestLabel(g.id, d);
   return `
-    <article class="cab-card${hasPlayed(g.id) ? ' is-played' : ''}" style="--ink: ${g.ink}">
-      <div class="card-marquee">${esc(g.name)}${hasPlayed(g.id) ? '<span class="played-dot" title="Déjà jouée" aria-label="Déjà jouée"></span>' : ''}</div>
-      <div class="card-screen">
-        ${glyphSVG(g, 46)}
-        <div class="scanlines"></div>
-      </div>
-      <div class="card-body">
-        <p class="card-desc">${esc(g.description)}</p>
-        <dl class="card-meta">
-          <div><dt>Genre</dt><dd>${esc(g.category)}</dd></div>
-          <div><dt>Niveau</dt><dd>${stars(g.difficulty)}</dd></div>
-          <div><dt>Record ${esc(levelName(d).toLowerCase())}</dt><dd>${best === null ? '—' : esc(fmtScore(best))}</dd></div>
-        </dl>
-        <a class="btn btn-ink" href="#/game/${g.id}" aria-label="Jouer à ${esc(g.name)}">Jouer</a>
-      </div>
-    </article>
+    <a class="tile" href="#/game/${g.id}" style="--ink: ${g.ink}" aria-label="Jouer à ${esc(g.name)}">
+      ${art(g)}
+      <span class="tile-info">
+        <span class="tile-name">${esc(g.name)}${hasPlayed(g.id) ? '<i class="played" aria-hidden="true"></i>' : ''}</span>
+        <span class="tile-meta">${esc(g.category)} · ${best === null ? stars(g.difficulty) : `record ${esc(fmtScore(best))}`}</span>
+      </span>
+    </a>
   `;
 }
 
@@ -128,94 +129,67 @@ function bindSeg(root, name, onPick) {
   });
 }
 
-/* --- Home: the hero is attract mode ------------------------------------- */
+/* --- Home: explain first, then the wall of cabinets ---------------------- */
 
 function renderHome() {
   render(`
     <section class="hero">
-      <div class="cabinet cabinet-hero" style="--ink: var(--flame)">
-        <div class="marquee"><h1 class="marquee-text">Mini Arcade</h1></div>
-        <div class="screen">
-          <canvas id="attract" width="480" height="360" aria-hidden="true"></canvas>
-          <div class="scanlines"></div>
-        </div>
-        <div class="deck">
-          <span class="eyebrow" id="attract-label">Mode attraction · l'IA joue contre elle-même</span>
-          <div class="plungers" aria-hidden="true"><i></i><i></i><i></i></div>
-          <a class="btn btn-primary" href="#/games">Voir les ${bornes()}</a>
+      <div class="intro">
+        <span class="eyebrow">${bornes()} · rien à installer</span>
+        <h1 class="page-title">Une salle d’arcade dans ton navigateur</h1>
+        <p class="intro-lede">
+          ${COUNT} classiques réécrits de zéro — Pong, Tetris, Démineur, Serpent…
+          Tu choisis une borne, elle se charge en une seconde, tu joues.
+          Au clavier sur ordinateur, avec les commandes à l’écran sur téléphone.
+        </p>
+        <div class="intro-actions">
+          <a class="btn btn-primary" href="#/games">Choisir une borne</a>
+          <a class="btn" href="#/about">Comment c’est fait</a>
         </div>
       </div>
-      <aside class="hero-aside">
-        <span class="eyebrow">${bornes()}, zéro installation</span>
-        <p class="hero-note">Elles tournent entièrement dans ton navigateur. Aucun compte à créer, aucune donnée envoyée — tes scores ne quittent jamais ta machine.</p>
-      </aside>
+      ${featureCard()}
     </section>
 
-    ${resumeStrip()}
+    <ol class="steps">
+      <li>
+        <b>Choisis ta borne</b>
+        <span>Chaque vignette est une machine : son nom, son écran, son genre. Un appui et la partie s’ouvre.</span>
+      </li>
+      <li>
+        <b>Règle la difficulté</b>
+        <span>Facile, normal ou difficile, sur la borne elle-même. Chaque niveau garde son propre classement.</span>
+      </li>
+      <li>
+        <b>Garde tes scores</b>
+        <span>Ils restent dans ce navigateur. Aucun compte, aucun serveur, rien n’est envoyé nulle part.</span>
+      </li>
+    </ol>
 
     <section>
-      <h2 class="rule-head"><span class="eyebrow">Les ${bornes()}</span></h2>
-      <div class="games-grid">${GAMES.map(cabCard).join('')}</div>
+      <h2 class="section-title">Les ${bornes()}</h2>
+      <div class="tile-grid">${GAMES.map(cabTile).join('')}</div>
     </section>
   `);
-
-  startAttract();
 }
 
-/** Offers the last cabinet played — the one thing a returning visitor wants. */
-function resumeStrip() {
-  const last = getLastGame();
-  const g = last && getGame(last);
-  if (!g) return '';
+/** The last cabinet played — the one thing a returning visitor wants. First visit: Tetris. */
+function featureCard() {
+  const last = getGame(getLastGame());
+  const g = last || getGame('tetris') || GAMES[0];
   const d = getDifficulty(g.id);
   const best = getBestLabel(g.id, d);
   return `
-    <section class="resume" style="--ink: ${g.ink}">
-      <span class="eyebrow">Ta dernière borne</span>
-      <div class="resume-main">
-        <span class="resume-glyph">${glyphSVG(g, 26)}</span>
-        <b class="resume-name">${esc(g.name)}</b>
-        <span class="resume-meta">${esc(levelName(d))}${best === null ? '' : ` · record ${esc(fmtScore(best))}`}</span>
-      </div>
-      <a class="btn btn-ink" href="#/game/${g.id}">Reprendre</a>
-    </section>`;
-}
-
-async function startAttract() {
-  const canvas = app.querySelector('#attract');
-  if (!canvas) return;
-
-  const mine = renderToken;
-  const { createGame } = await import('./games/pong.js');
-  if (mine !== renderToken) return; // navigated away mid-import
-
-  const ctrl = createGame(canvas, {}, { autoplay: true });
-  ctrl.start();
-
-  const reduce = prefersReducedMotion() || !getSettings().animations;
-  if (reduce) {
-    // Reduced motion: render one frame and hold it. A still cabinet, not a moving one.
-    ctrl.setPaused(true);
-    const label = app.querySelector('#attract-label');
-    if (label) label.textContent = 'Mode attraction · en pause';
-  }
-
-  // Don't burn a rAF loop on a hero that has scrolled out of view.
-  let io = null;
-  if (!reduce && 'IntersectionObserver' in window) {
-    io = new IntersectionObserver(
-      ([entry]) => ctrl.setPaused(!entry.isIntersecting),
-      { threshold: 0 },
-    );
-    io.observe(canvas);
-  }
-
-  currentController = {
-    destroy() {
-      io?.disconnect();
-      ctrl.destroy();
-    },
-  };
+    <a class="feature" href="#/game/${g.id}" style="--ink: ${g.ink}">
+      ${art(g)}
+      <span class="feature-foot">
+        <span class="feature-info">
+          <span class="eyebrow">${last ? 'Ta dernière borne' : 'À essayer'}</span>
+          <b class="feature-name">${esc(g.name)}</b>
+          <span class="feature-meta">${esc(g.category)} · ${esc(levelName(d))}${best === null ? '' : ` · record ${esc(fmtScore(best))}`}</span>
+        </span>
+        <span class="btn btn-primary">${last ? 'Reprendre' : 'Jouer'}</span>
+      </span>
+    </a>`;
 }
 
 /* --- Catalog ------------------------------------------------------------- */
@@ -237,7 +211,7 @@ function renderGames() {
                 data-cat="${esc(c)}" aria-pressed="${c === 'Tous'}">${esc(c)}</button>
       `).join('')}
     </div>
-    <div class="games-grid" id="games-grid"></div>
+    <div class="tile-grid" id="games-grid"></div>
     <p class="eyebrow" id="result-count" role="status" style="margin-top:1.5rem"></p>
   `);
 
@@ -251,7 +225,7 @@ function renderGames() {
       (g.name.toLowerCase().includes(q) || g.category.toLowerCase().includes(q))
     ));
     grid.innerHTML = hits.length
-      ? hits.map(cabCard).join('')
+      ? hits.map(cabTile).join('')
       : `<p class="empty-state">Aucune borne ne correspond. Essaie un autre nom ou retire le filtre.</p>`;
     count.textContent = `${bornes(hits.length)} sur ${COUNT}`;
   }
@@ -299,8 +273,8 @@ function renderScores() {
 
     <div class="scores-grid">
       ${GAMES.map((g) => `
-        <div class="cabinet score-cab" data-game="${g.id}" style="--ink: ${g.ink}">
-          <div class="card-marquee">${esc(g.name)}</div>
+        <div class="score-card" data-game="${g.id}" style="--ink: ${g.ink}">
+          <a class="score-title" href="#/game/${g.id}">${art(g)}<b>${esc(g.name)}</b></a>
           <div class="score-head">${diffControl(g.id, `s-${g.id}`)}</div>
           <div class="score-body" id="sb-${g.id}"></div>
         </div>
@@ -347,7 +321,7 @@ function renderSettings() {
     </header>
     <div class="settings-list">
       <div class="settings-row">
-        <span class="label"><b>Thème sombre</b><span>Stratifié noir. Décoché, le site passe en planche de décalque.</span></span>
+        <span class="label"><b>Thème sombre</b><span>Décoché, le site passe en thème clair. L’écran de jeu reste noir.</span></span>
         <span class="switch"><input type="checkbox" id="set-theme" ${s.theme === 'dark' ? 'checked' : ''}><span class="slider"></span></span>
       </div>
       <div class="settings-row">
@@ -359,7 +333,7 @@ function renderSettings() {
         <input type="range" id="set-volume" min="0" max="1" step="0.05" value="${s.volume}">
       </div>
       <div class="settings-row">
-        <span class="label"><b>Animations</b><span>Décoché, les transitions et le mode attraction s'arrêtent.</span></span>
+        <span class="label"><b>Animations</b><span>Décoché, les transitions et les effets de survol s’arrêtent.</span></span>
         <span class="switch"><input type="checkbox" id="set-anim" ${s.animations ? 'checked' : ''}><span class="slider"></span></span>
       </div>
       <div class="settings-row">
@@ -428,44 +402,59 @@ function renderGamePage(id) {
   let diff = getDifficulty(id);
   const best = getBestLabel(id, diff);
 
+  // The stage (bar, screen, readout, pad) is sized to the viewport on phones so
+  // nothing needs scrolling mid-game; options and help sit below it.
   render(`
-    <a class="back-link" href="#/games">← Toutes les bornes</a>
-
-    <div class="cabinet cabinet-game" style="--ink: ${game.ink}">
-      <div class="marquee"><h1 class="marquee-text">${esc(game.name)}</h1></div>
-
-      <div class="screen screen-game">
-        <canvas id="game-canvas" width="480" height="360" aria-label="Zone de jeu ${esc(game.name)}"></canvas>
-        <div class="scanlines"></div>
-        <div class="game-overlay" id="overlay">
-          <p class="overlay-badge" id="overlay-badge" hidden>Nouveau record</p>
-          <p class="overlay-title" id="overlay-title">Prêt ?</p>
-          <p id="overlay-text">${esc(game.description)}</p>
-          <button class="btn btn-primary" type="button" id="overlay-btn">Démarrer</button>
+    <section class="play" style="--ink: ${game.ink}">
+      <div class="play-stage">
+        <div class="play-bar">
+          <a class="back-link" href="#/games" aria-label="Toutes les bornes">Bornes</a>
+          <h1 class="play-title">${esc(game.name)}</h1>
+          <button class="btn btn-sm" type="button" id="pause-btn">Pause</button>
         </div>
-      </div>
 
-      <div class="deck deck-game">
+        <div class="screen" id="screen">
+          <canvas id="game-canvas" width="480" height="360" aria-label="Zone de jeu ${esc(game.name)}"></canvas>
+          <div class="game-overlay" id="overlay">
+            <p class="overlay-badge" id="overlay-badge" hidden>Nouveau record</p>
+            <p class="overlay-title" id="overlay-title">Prêt ?</p>
+            <p id="overlay-text">${esc(game.description)}</p>
+            <button class="btn btn-primary" type="button" id="overlay-btn">Démarrer</button>
+          </div>
+        </div>
+
         <dl class="readout">
           <div><dt>Score</dt><dd id="stat-score">0</dd></div>
           <div><dt>Niveau</dt><dd id="stat-level">1</dd></div>
           <div id="lives-wrap" hidden><dt>${esc(game.livesLabel || 'Vies')}</dt><dd id="stat-lives">—</dd></div>
           <div><dt>Record</dt><dd id="stat-best">${best === null ? '—' : esc(fmtScore(best))}</dd></div>
         </dl>
-        <div class="deck-actions">
-          ${diffControl(id, 'game', diff)}
-          <button class="btn" type="button" id="pause-btn">Pause</button>
-          <button class="btn" type="button" id="restart-btn">Recommencer</button>
-        </div>
+
+        <div class="touch-controls" id="touch-controls"></div>
       </div>
-    </div>
 
-    <div class="touch-controls" id="touch-controls"></div>
+      <div class="play-options">
+        ${diffControl(id, 'game', diff)}
+        <button class="btn" type="button" id="restart-btn">Recommencer</button>
+      </div>
 
-    <p class="help-text" id="help-text"></p>
+      <p class="help-text" id="help-text"></p>
+    </section>
   `);
 
   const canvas = app.querySelector('#game-canvas');
+  const screenEl = app.querySelector('#screen');
+
+  // Contain-fit the canvas in its screen at any size, up or down. The games map
+  // pointer coordinates from the canvas box, so it must stay undistorted.
+  function fit() {
+    const s = Math.min(screenEl.clientWidth / canvas.width, screenEl.clientHeight / canvas.height);
+    canvas.style.width = `${Math.floor(canvas.width * s)}px`;
+    canvas.style.height = `${Math.floor(canvas.height * s)}px`;
+    canvas.style.imageRendering = s >= 1 ? 'pixelated' : 'auto'; // crisp upscale; no dropped lines downscaled
+  }
+  const resizer = new ResizeObserver(fit);
+  resizer.observe(screenEl);
   const overlay = app.querySelector('#overlay');
   const overlayTitle = app.querySelector('#overlay-title');
   const overlayText = app.querySelector('#overlay-text');
@@ -478,8 +467,10 @@ function renderGamePage(id) {
   const statLives = app.querySelector('#stat-lives');
   const livesWrap = app.querySelector('#lives-wrap');
 
-  app.querySelector('#help-text').innerHTML =
-    `${game.keys} <kbd>Échap</kbd> met en pause.`;
+  const coarse = matchMedia('(pointer: coarse)').matches;
+  app.querySelector('#help-text').innerHTML = coarse
+    ? (game.touchKeys || 'Utilise les commandes sous l’écran.')
+    : `${game.keys} <kbd>Échap</kbd> met en pause.`;
 
   let controller = null;
   let paused = false;
@@ -532,6 +523,7 @@ function renderGamePage(id) {
 
     controller?.destroy();
     controller = createGame(canvas, { onStats, onGameOver, sfx, tone: beep }, { difficulty: diff });
+    fit(); // each game sets its own canvas size
     controller.start();
     markPlayed(id);
   }
@@ -567,7 +559,7 @@ function renderGamePage(id) {
   /* Touch controls — only on coarse pointers, mirroring the keyboard map. */
   const wrap = app.querySelector('#touch-controls');
   const spec = game.touch || {};
-  if (matchMedia('(pointer: coarse)').matches && (spec.pad || spec.actions?.length)) {
+  if (coarse && (spec.pad || spec.actions?.length)) {
     const PADS = {
       dpad: `<div class="dpad">
         <button class="pad-btn" type="button" data-a="up" aria-label="Haut">↑</button>
@@ -594,6 +586,7 @@ function renderGamePage(id) {
     wrap.querySelectorAll('[data-a]').forEach((btn) => {
       const send = (down) => (e) => {
         e.preventDefault();
+        btn.classList.toggle('is-down', down); // :active is unreliable under touch on iOS
         controller?.input(btn.dataset.a, down);
       };
       // Fire on pointerdown so the press itself is the feedback, never the release.
@@ -629,6 +622,7 @@ function renderGamePage(id) {
     destroy() {
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('keyup', onKey);
+      resizer.disconnect();
       controller?.destroy();
     },
   };
@@ -646,9 +640,9 @@ const ROUTES = {
 
 function route() {
   const parts = (location.hash.slice(1) || '/').split('/').filter(Boolean);
-  if (parts[0] === 'game' && parts[1]) return renderGamePage(parts[1]);
-  (ROUTES[parts[0] || ''] || renderHome)();
-  window.scrollTo(0, 0);
+  if (parts[0] === 'game' && parts[1]) renderGamePage(parts[1]);
+  else (ROUTES[parts[0] || ''] || renderHome)();
+  window.scrollTo(0, 0);   // a game opened from deep in the grid must start at its stage
 }
 
 window.addEventListener('hashchange', route);
