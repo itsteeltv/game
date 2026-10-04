@@ -73,15 +73,15 @@
   --fill-2:     rgba(118, 118, 128, 0.11);
   --fill-3:     rgba(118, 118, 128, 0.26);
   --label:      #1D1D1F;
-  --label-2:    #6E6E73;
+  --label-2:    #5C5C61;   /* 5.4:1 on the grey fills, 6.3:1 on the page */
   --label-3:    rgba(60, 60, 67, 0.36);
   --sep:        rgba(60, 60, 67, 0.14);
   --material:      rgba(250, 250, 252, 0.74);
   --material-edge: rgba(0, 0, 0, 0.06);
   --shadow:      0 1px 2px rgba(0, 0, 0, 0.06), 0 10px 30px -12px rgba(0, 0, 0, 0.18);
   --shadow-lift: 0 2px 6px rgba(0, 0, 0, 0.07), 0 26px 50px -18px rgba(0, 0, 0, 0.28);
-  --accent-text: #C73208;   /* flame as small text on a light ground fails; this one passes */
-  --danger:      #D70015;
+  --accent-text: #B8300A;   /* flame as small text on a light ground fails; this one clears 4.5:1 on tinted fills too */
+  --danger:      #BF0011;
 }
 
 /* --- Base ---------------------------------------------------------------- */
@@ -90,6 +90,20 @@
 html {
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
+  scrollbar-gutter: stable;   /* the page gaining a scrollbar must not nudge the header sideways */
+}
+
+/* Read by screen readers only: live announcements and visually-replaced labels. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 body {
@@ -239,6 +253,10 @@ kbd {
   transition: transform 160ms var(--ease), background-color 200ms ease;
 }
 .icon-btn:active { transform: scale(0.9); transition-duration: 80ms; }
+.icon-btn svg { width: 18px; height: 18px; }
+.snd-off { display: none; }
+#sound-toggle[aria-pressed="false"] .snd-on { display: none; }
+#sound-toggle[aria-pressed="false"] .snd-off { display: block; }
 
 #app {
   flex: 1;
@@ -247,7 +265,11 @@ kbd {
   margin: 0 auto;
   padding: clamp(1.5rem, 4vw, 2.75rem) max(var(--gut), env(safe-area-inset-right)) 4rem max(var(--gut), env(safe-area-inset-left));
 }
-#app:focus { outline: none; }
+#app:focus, #app h1:focus { outline: none; }
+/* Until the first render the page is empty: keep the footer below the fold instead of
+   painting it mid-screen and shoving it down a moment later. */
+#app:not([data-ready]) { min-height: 100svh; }
+.noscript { margin: 0; padding: 2rem 0; color: var(--label-2); }
 
 /* Each page arrives with a short rise. `backwards` only: once settled no
    transform lingers to trap fixed children or flatten stacking. */
@@ -255,7 +277,9 @@ kbd {
 @keyframes arrive { from { opacity: 0; transform: translateY(10px); } }
 
 .site-footer { padding: 2rem var(--gut) 2.5rem; text-align: center; }
-.site-footer p { margin: 0; font-size: 0.78rem; line-height: 1.6; color: var(--label-3); }
+.site-footer p { margin: 0; font-size: 0.78rem; line-height: 1.6; color: var(--label-2); }
+.site-footer .credit { margin-top: 0.15rem; }
+.site-footer .credit b { font-weight: 600; color: var(--label); }
 
 /* --- Buttons ------------------------------------------------------------- */
 .btn {
@@ -280,6 +304,7 @@ kbd {
 
 .btn-primary { background: var(--ink); color: var(--on-ink); }
 .btn-sm { min-height: 34px; padding: 0 0.95rem; font-size: 0.8125rem; }
+.btn:disabled { opacity: 0.4; cursor: default; pointer-events: none; }
 .btn-danger { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
 
 @media (hover: hover) and (pointer: fine) {
@@ -584,6 +609,19 @@ kbd {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
 }
 .cab-meta { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+/* A game added recently: a small lit tag on the marquee's corner. */
+.cab-new {
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #0A0A0C;
+  color: var(--ink);
+  font: 800 0.58rem/1.3 var(--font);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
 /* Already tried: a small check on the coin door. */
 .played {
   flex-shrink: 0;
@@ -662,6 +700,8 @@ kbd {
 }
 .filter-chip:active { transform: scale(0.95); transition-duration: 80ms; }
 .filter-chip.active { background: var(--label); color: var(--bg); }
+.filter-chip small { margin-left: 0.3rem; font-size: 0.78em; opacity: 0.6; font-variant-numeric: tabular-nums; }
+.filter-chip.shuffle { margin-left: auto; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent-text); }
 #result-count { text-transform: none; letter-spacing: 0; font-weight: 400; font-size: 0.85rem; }
 
 /* --- Game page ----------------------------------------------------------- */
@@ -761,6 +801,10 @@ kbd {
   color: rgba(235, 235, 245, 0.55);
 }
 .game-overlay .btn { margin-top: 0.3rem; min-width: 9rem; }
+.game-overlay .overlay-note { max-width: 34ch; font-size: 0.8rem; color: rgba(235, 235, 245, 0.6); }
+.game-overlay .overlay-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; }
+.game-overlay .overlay-actions .btn { min-width: 0; background: rgba(255, 255, 255, 0.14); color: #F5F5F7; }
+.game-overlay .overlay-actions .btn-primary { background: var(--ink); color: var(--on-ink); }
 .overlay-badge {
   padding: 0.4rem 0.85rem;
   border-radius: 999px;
@@ -1041,6 +1085,7 @@ kbd {
   right: 0;
   border-top: 0.5px solid var(--sep);
 }
+label.settings-row { cursor: pointer; }
 .settings-row .label { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
 .settings-row .label b { font-weight: 500; font-size: 1rem; letter-spacing: -0.01em; }
 .settings-row .label span { font-size: 0.82rem; line-height: 1.45; color: var(--label-2); }

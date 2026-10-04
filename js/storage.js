@@ -7,15 +7,16 @@ const KEYS = {
   lastGame: 'arcade:lastGame',
 };
 
+// Theme and CRT depend on the device, so they are resolved when read, not frozen here:
+// the system's light/dark choice on a first visit, and no scanlines on a phone (they cost legibility).
 const DEFAULT_SETTINGS = {
-  theme: 'dark',
   volume: 0.6,
   sfx: true,
   music: true,
-  crt: true,          // scanlines and a curved-glass vignette over the game screen
   animations: true,
   initials: 'AAA',    // last initials typed on a high-score table, offered again next time
 };
+const media = (q) => { try { return matchMedia(q).matches; } catch { return false; } };
 
 export const LEVELS = [
   { id: 0, name: 'Facile' },
@@ -43,7 +44,12 @@ function write(key, value) {
 }
 
 export function getSettings() {
-  return { ...DEFAULT_SETTINGS, ...read(KEYS.settings, {}) };
+  return {
+    ...DEFAULT_SETTINGS,
+    theme: media('(prefers-color-scheme: light)') ? 'light' : 'dark',
+    crt: !media('(pointer: coarse)'),   // scanlines and a curved-glass vignette over the game screen
+    ...read(KEYS.settings, {}),
+  };
 }
 
 export function setSettings(patch) {

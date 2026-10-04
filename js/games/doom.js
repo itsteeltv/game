@@ -332,7 +332,9 @@ export function createGame(canvas, host, opts = {}) {
       message('LECTURE DU WAD…', opts.file.name);
       return { name: opts.file.name.toLowerCase().replace(/[^a-z0-9._-]/g, ''), bytes: new Uint8Array(await opts.file.arrayBuffer()) };
     }
-    const res = await fetch(new URL('./doom/freedoom1.wad', import.meta.url));
+    let res;
+    try { res = await fetch(new URL('./doom/freedoom1.wad', import.meta.url)); }
+    catch { throw Object.assign(new Error('offline'), { offline: true }); }   // first launch needs the network
     if (!res.ok) throw new Error(`freedoom1.wad: ${res.status}`);
     const total = Number(res.headers.get('content-length')) || 28795076;
     const reader = res.body.getReader();
@@ -398,7 +400,8 @@ export function createGame(canvas, host, opts = {}) {
   function fail(e) {
     running = false;
     const quit = e && e.name === 'ExitStatus';
-    message(quit ? 'PARTIE QUITTÉE' : 'LE MOTEUR S’EST ARRÊTÉ', quit ? 'Recommencer pour relancer' : String(e?.message || e).slice(0, 60));
+    if (e?.offline) message('CONNEXION REQUISE', 'Premier lancement : 29 Mo à télécharger');
+    else message(quit ? 'PARTIE QUITTÉE' : 'LE MOTEUR S’EST ARRÊTÉ', quit ? 'Recommencer pour relancer' : String(e?.message || e).slice(0, 60));
     syncSaves();
     music?.stop(); sfx?.stopAll();
   }
@@ -416,6 +419,9 @@ export function createGame(canvas, host, opts = {}) {
 
   const onKey = (e) => {
     if (e.target.closest?.('input')) return;
+    // A button or link reached with Tab keeps Enter and Space, and Shift+Tab hands the keyboard back to the page.
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.closest?.('a, button') && e.target.matches(':focus-visible')) return;
+    if (e.key === 'Tab' && e.shiftKey) return;
     const k = keyFor(e);
     if (k === null) return;
     e.preventDefault();   // no page scroll on Space, no focus jump on Tab

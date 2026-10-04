@@ -4,8 +4,25 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Mini Arcade — des bornes dans ton navigateur</title>
-<meta name="description" content="Des bornes d'arcade jouables directement dans le navigateur. Rien à installer, aucun compte, tes scores restent sur ta machine.">
+<meta name="description" content="Des bornes d'arcade jouables directement dans le navigateur, sur ordinateur comme sur téléphone. Rien à installer, aucun compte, tes scores restent sur ta machine.">
+<meta name="author" content="SteelTV">
 <meta name="theme-color" content="#050506">
+<link rel="canonical" href="https://itsteeltv.github.io/game/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Mini Arcade">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:title" content="Mini Arcade — des bornes dans ton navigateur">
+<meta property="og:description" content="Une salle d'arcade dans ton navigateur : Tetris, Pong, Doom, Gemmes, Reversi… Rien à installer, aucun compte.">
+<meta property="og:url" content="https://itsteeltv.github.io/game/">
+<meta property="og:image" content="https://itsteeltv.github.io/game/img/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Mini Arcade : une rangée de bornes d'arcade aux couleurs vives">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Mini Arcade — des bornes dans ton navigateur">
+<meta name="twitter:description" content="Une salle d'arcade dans ton navigateur. Rien à installer, aucun compte.">
+<meta name="twitter:image" content="https://itsteeltv.github.io/game/img/og.png">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Mini Arcade","url":"https://itsteeltv.github.io/game/","inLanguage":"fr","description":"Des bornes d'arcade jouables dans le navigateur.","author":{"@type":"Organization","name":"SteelTV","alternateName":"LeVraiSteelTV"}}</script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 20 24%22><rect x=%221%22 y=%221%22 width=%2218%22 height=%2222%22 rx=%222%22 fill=%22%23FF4D1F%22/><rect x=%224%22 y=%225%22 width=%2212%22 height=%229%22 rx=%221%22 fill=%22%230B0A0D%22/><rect x=%225%22 y=%2217%22 width=%2210%22 height=%222%22 rx=%221%22 fill=%22%230B0A0D%22/></svg>">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="img/icons/apple-touch-icon.png">
@@ -13,7 +30,21 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Arcade">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<script>
+  // Theme before first paint (no dark flash for a light-theme visitor): saved choice, else the system's.
+  try {
+    var s = JSON.parse(localStorage.getItem('arcade:settings') || '{}');
+    var t = s.theme || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    document.documentElement.setAttribute('data-theme', t);
+    document.querySelector('meta[name="theme-color"]').setAttribute('content', t === 'light' ? '#F5F5F7' : '#050506');
+  } catch (e) {}
+</script>
 <link rel="stylesheet" href="css/style.css">
+<!-- The page is drawn by JavaScript: fetch the module graph in parallel instead of one level at a time. -->
+<link rel="modulepreload" href="js/app.js">
+<link rel="modulepreload" href="js/catalog.js">
+<link rel="modulepreload" href="js/storage.js">
+<link rel="modulepreload" href="js/audio.js">
 </head>
 <body>
 <a class="skip-link" href="#app">Aller au contenu</a>
@@ -39,18 +70,29 @@
     </nav>
 
     <div class="header-actions">
-      <button id="sound-toggle" class="icon-btn" type="button" aria-pressed="true" aria-label="Couper le son">🔊</button>
-      <button id="theme-toggle" class="icon-btn" type="button" aria-label="Passer en thème clair">◐</button>
-      <a class="icon-btn" href="https://github.com/" target="_blank" rel="noopener noreferrer" aria-label="Code source sur GitHub">↗</a>
+      <button id="sound-toggle" class="icon-btn" type="button" aria-pressed="true" aria-label="Couper le son">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5v5h3.5l4.5 4v-13l-4.5 4z" fill="currentColor" stroke-width="1.2"/><path class="snd-on" d="M15.5 8.7a4.6 4.6 0 0 1 0 6.6M18.3 6a8.4 8.4 0 0 1 0 12"/><path class="snd-off" d="m16 9.5 5 5m0-5-5 5"/></svg>
+      </button>
+      <button id="theme-toggle" class="icon-btn" type="button" aria-label="Passer en thème clair">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>
+      </button>
+      <a class="icon-btn" href="https://github.com/itsteeltv/game" target="_blank" rel="noopener noreferrer" aria-label="Code source sur GitHub">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m8.5 7-5 5 5 5M15.5 7l5 5-5 5"/></svg>
+      </a>
     </div>
   </div>
 </header>
 
-<main id="app" tabindex="-1"></main>
+<main id="app" tabindex="-1">
+  <noscript><p class="noscript">Mini Arcade a besoin de JavaScript : les bornes tournent entièrement dans ton navigateur, sans serveur. Active-le pour jouer.</p></noscript>
+</main>
 
 <footer class="site-footer">
   <p><span id="footer-count">—</span> · aucun serveur · aucun tracker · scores stockés sur ta machine</p>
+  <p class="credit">Fait par <b>SteelTV</b> · LeVraiSteelTV</p>
 </footer>
+
+<div id="sr-status" class="sr-only" role="status" aria-live="polite"></div>
 
 <script type="module" src="js/app.js"></script>
 </body>
