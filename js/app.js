@@ -1,8 +1,8 @@
-import { GAMES, getGame, stars, glyphSVG } from './catalog.js';
+import { GAMES, getGame, glyphSVG } from './catalog.js';
 import {
   getSettings, setSettings, saveScore, getHighScores, getBestLabel, getAnyBest,
   getDifficulty, setDifficulty, markPlayed, hasPlayed, getLastGame,
-  resetAllData, setLastGame, LEVELS, levelName, renameScore,
+  resetAllData, setLastGame, LEVELS, levelName, renameScore, dataSummary,
 } from './storage.js';
 import { sfx, beep, SONGS, playMusic, stopMusic, setMusicRate } from './audio.js';
 
@@ -33,7 +33,7 @@ function applySettings() {
   if (fc) fc.textContent = bornes();
   const s = getSettings();
   document.documentElement.setAttribute('data-theme', s.theme);
-  metaTheme?.setAttribute('content', s.theme === 'dark' ? '#050506' : '#F5F5F7');
+  metaTheme?.setAttribute('content', s.theme === 'dark' ? '#07080D' : '#F2F3F8');
   themeBtn.setAttribute('aria-label', s.theme === 'dark' ? 'Passer en thème clair' : 'Passer en thème sombre');
   soundBtn.setAttribute('aria-pressed', String(s.sfx));
   soundBtn.setAttribute('aria-label', s.sfx ? 'Couper le son' : 'Activer le son');
@@ -73,8 +73,9 @@ function render(html) {
   if (h1) { h1.tabIndex = -1; if (!firstRender) h1.focus({ preventScroll: true }); }
   firstRender = false;
   const route = activeRoute();
-  document.body.dataset.view = route === '/game' ? 'game' : 'page'; // phones drop the tab bar mid-game
-  document.querySelectorAll('.main-nav a').forEach((a) => {
+  // Phones drop the tab bar mid-game — but only on a real game page, not on a 404 reached through /game/.
+  document.body.dataset.view = app.querySelector('.play') ? 'game' : 'page';
+  document.querySelectorAll('.rail-nav a').forEach((a) => {
     const on = a.dataset.route === route;
     a.classList.toggle('active', on);
     if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
@@ -92,43 +93,45 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => (
 /** Search folding: "asteroides" must find "Astéroïdes". */
 const norm = (s) => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
-/* --- Cabinet partials ---------------------------------------------------- */
+/* --- Card partials -------------------------------------------------------- */
 
-/** The game's own screen, captured from a real run (img/games/<id>.png).
-    The glyph underneath shows through if a new game has no capture yet. */
-function art(g, eager = false) {
-  // The first thing on the page (the featured card) is the LCP: it must not wait to be scrolled to.
+/** The borne's own screen, captured from a real run (img/games/<id>.png). The glyph
+    underneath shows through when a borne has no capture yet; the fixed size keeps the
+    grid from jumping while the pictures arrive. */
+function cardArt(g, eager = false) {
   const load = eager ? 'loading="eager" fetchpriority="high"' : 'loading="lazy"';
-  return `
-    <span class="art">
-      ${glyphSVG(g, 44)}
-      <img src="img/games/${g.id}.png" alt="" ${load} decoding="async" onerror="this.remove()">
-    </span>`;
+  return `${glyphSVG(g, 52)}<img src="img/games/${g.id}.png" alt="" width="480" height="360" ${load} decoding="async" onerror="this.remove()">`;
 }
 
-/** The link's spoken name: what the machine is, its genre, and the thing worth knowing — your record, else how hard it is. */
-const tileLabel = (g, best) => `Jouer à ${g.name}${g.new ? ' (nouveau)' : ''} — ${g.category}, ${best === null ? `difficulté ${g.difficulty} sur 5` : `record ${fmtScore(best)}`}`;
+/** Difficulty as five dots — never the only signal: the spoken label says it in words. */
+const dots = (n) => `<span class="dots" aria-hidden="true">${
+  Array.from({ length: 5 }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</span>`;
 
-/** A little arcade cabinet: lit marquee with the name, the game's screen, a
-    control panel with the Jouer button. The whole machine is the link. */
-function cabTile(g) {
+const CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="var(--on-ink)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 13 4.5 4.5L19 7"/></svg>';
+
+/** What a card is called out loud: the borne, its genre, and the one thing worth knowing. */
+const cardLabel = (g, best, played) => `Jouer à ${g.name}${g.new ? ' (nouveau)' : ''} — ${g.category}, ${
+  best === null ? `difficulté ${g.difficulty} sur 5` : `ton record ${fmtScore(best)}`}${played ? ', déjà jouée' : ''}`;
+
+/** One cabinet: marquee strip, screen, then the base with name and best score. */
+function gameCard(g, eager = false) {
   const d = getDifficulty(g.id);
   const best = getBestLabel(g.id, d);
+  const played = hasPlayed(g.id);
   return `
-    <a class="cab" href="#/game/${g.id}" style="--ink: ${g.ink}" aria-label="${esc(tileLabel(g, best))}">
-      <span class="cab-marquee">${esc(g.name)}${g.new ? '<span class="cab-new" aria-hidden="true">Nouveau</span>' : ''}</span>
-      <span class="cab-bezel">${art(g)}</span>
-      <span class="cab-panel" aria-hidden="true">
-        <span class="cab-stick"></span>
-        <span class="cab-dots"><i></i><i></i></span>
-        <span class="cab-play">Jouer</span>
+    <a class="card" href="#/game/${g.id}" style="--ink: ${g.ink}" aria-label="${esc(cardLabel(g, best, played))}">
+      <span class="card-art">
+        ${cardArt(g, eager)}
+        <span class="card-cat" aria-hidden="true">${esc(g.category)}</span>
+        ${g.new ? '<span class="tag" aria-hidden="true">Nouveau</span>' : ''}
+        ${played ? `<span class="tag tag-played" aria-hidden="true">${CHECK}</span>` : ''}
       </span>
-      <span class="cab-base">
-        <span class="cab-meta">${esc(g.category)} · ${best === null ? stars(g.difficulty) : `record ${esc(fmtScore(best))}`}</span>
-        ${hasPlayed(g.id) ? '<i class="played" aria-hidden="true"></i>' : ''}
+      <span class="card-body">
+        <span class="card-title">${esc(g.name)}</span>
+        <span class="card-meta">${
+          best === null ? dots(g.difficulty) : `<span class="best">${esc(fmtScore(best))}</span>`}</span>
       </span>
-    </a>
-  `;
+    </a>`;
 }
 
 /** Segmented 3-way difficulty picker. `name` scopes the radio group. */
@@ -158,147 +161,256 @@ function bindSeg(root, name, onPick) {
   });
 }
 
-/* --- Home: explain first, then the wall of cabinets ---------------------- */
+/* --- Home ----------------------------------------------------------------- */
+
+/** A shelf: one row of cabinets that scrolls sideways, like a row in the hall. */
+function shelf(title, list, href = '#/games', more = 'Tout voir →') {
+  if (!list.length) return '';
+  return `
+    <section class="section" style="--ink: ${list[0].ink}">
+      <div class="section-head">
+        <h2 class="section-title">${esc(title)}</h2>
+        <a class="link-more" href="${href}">${esc(more)}</a>
+      </div>
+      <div class="shelf">${list.map((g) => gameCard(g)).join('')}</div>
+    </section>`;
+}
 
 function renderHome() {
   setTitle(null);
+  const last = getGame(getLastGame());
+  const played = GAMES.filter((g) => hasPlayed(g.id));
+  const fresh = GAMES.filter((g) => g.new);
+  const ranked = GAMES.filter((g) => getAnyBest(g.id) !== null);
+  const total = ranked.reduce((sum, g) => sum + (getAnyBest(g.id) || 0), 0);
+  const starters = ['tetris', 'pacman', 'bombes', 'pyramide', 'flipper', 'eboulis', 'tuyaux', 'breakout']
+    .map(getGame).filter(Boolean);
+  const picks = played.length ? played.slice(0, 10) : starters;
+  // One shelf per genre, in catalogue order, so the whole hall is reachable from here.
+  const cats = [...new Set(GAMES.map((g) => g.category))];
+
   render(`
     <section class="hero">
-      <div class="intro">
+      <div class="hero-copy">
         <span class="eyebrow">${bornes()} · rien à installer</span>
-        <h1 class="page-title">Une salle d’arcade dans ton navigateur</h1>
-        <p class="intro-lede">
-          ${COUNT} bornes, de Pong (1972) à Doom (1993) — Tetris, Galaxie, Astéroïdes, Mille-pattes…
-          Tu choisis une borne, elle se charge en une seconde, tu joues.
-          Au clavier sur ordinateur, avec les commandes à l’écran sur téléphone.
+        <h1 class="page-title">La salle d’arcade <em>tient dans ton onglet</em></h1>
+        <p class="lede">
+          De Pong (1972) à Doom (1993) : Bombes, Pyramide, Éboulis, Tuyaux, Flipper,
+          Le Mot… Tu choisis, ça se charge en une seconde, tu joues. Au clavier sur
+          ordinateur, aux commandes à l’écran sur téléphone.
         </p>
-        <div class="intro-actions">
+        <div class="hero-actions">
           <a class="btn btn-primary" href="#/games">Choisir une borne</a>
-          <a class="btn" href="#/about">Comment c’est fait</a>
+          <a class="btn" href="#/game/${esc((last || starters[0] || GAMES[0]).id)}">${last ? 'Reprendre' : 'Jouer tout de suite'}</a>
         </div>
       </div>
-      ${featureCard()}
+      <div class="attract">
+        <canvas id="attract-canvas" width="480" height="360" aria-hidden="true"></canvas>
+        <span class="attract-label" aria-hidden="true">Démo · Pong</span>
+      </div>
     </section>
 
-    <ol class="steps">
-      <li>
-        <b>Choisis ta borne</b>
-        <span>Chaque vignette est une machine : son nom, son écran, son genre. Un appui et la partie s’ouvre.</span>
-      </li>
-      <li>
-        <b>Règle la difficulté</b>
-        <span>Facile, normal ou difficile, sur la borne elle-même. Chaque niveau garde son propre classement.</span>
-      </li>
-      <li>
-        <b>Garde tes scores</b>
-        <span>Ils restent dans ce navigateur. Aucun compte, aucun serveur, rien n’est envoyé nulle part.</span>
-      </li>
-    </ol>
+    <dl class="stat-row">
+      <div class="stat"><dt>Bornes</dt><dd>${COUNT}</dd></div>
+      <div class="stat"><dt>Essayées</dt><dd>${played.length} <span class="data">/ ${COUNT}</span></dd></div>
+      <div class="stat"><dt>Cumul des records</dt><dd>${fmtScore(total)}</dd></div>
+      <div class="stat"><dt>Classées</dt><dd>${ranked.length}</dd></div>
+    </dl>
 
-    <section>
-      <h2 class="section-title">Les ${bornes()}</h2>
-      <div class="tile-grid">${GAMES.map(cabTile).join('')}</div>
+    <section class="section" style="margin-top:0">
+      <div class="section-head">
+        <h2 class="section-title">${last ? 'Là où tu t’es arrêté' : 'La borne du jour'}</h2>
+        <a class="link-more" href="#/scores">Tes scores →</a>
+      </div>
+      ${resumeCard(last)}
+    </section>
+
+    ${shelf('Nouvelles bornes', fresh)}
+    ${shelf(played.length ? 'Tes bornes' : 'Pour commencer', picks, '#/games', `Les ${bornes()} →`)}
+    ${cats.map((c) => shelf(c, GAMES.filter((g) => g.category === c))).join('')}
+
+    <section class="section">
+      <h2 class="section-title">Comment ça marche</h2>
+      <div class="rowgrid" style="margin-top:var(--s4)">
+        <div class="note"><b>Trois difficultés</b><span>Facile, normal ou difficile, réglé sur la borne. Chaque niveau garde son propre classement.</span></div>
+        <div class="note"><b>Tes scores restent ici</b><span>Dans ce navigateur, sur cette machine. Aucun compte, aucun serveur, rien n’est envoyé nulle part.</span></div>
+        <div class="note"><b>Même sans réseau</b><span>Installe le site comme une appli : les bornes déjà ouvertes restent jouables hors ligne.</span></div>
+      </div>
     </section>
   `);
+
+  startAttract();
 }
 
-/** The last cabinet played — the one thing a returning visitor wants. First visit: Tetris. */
-function featureCard() {
-  const last = getGame(getLastGame());
+/** Attract mode: Pong plays itself in the hero, as a cabinet left on in a quiet hall.
+    Off when motion is unwelcome, and torn down the moment you leave the page. */
+function startAttract() {
+  const canvas = app.querySelector('#attract-canvas');
+  if (!canvas) return;
+  if (!getSettings().animations || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    canvas.closest('.attract')?.remove();
+    return;
+  }
+  const mine = renderToken;
+  import('./games/pong.js').then(({ createGame }) => {
+    if (mine !== renderToken) return;           // navigated away while the module loaded
+    const demo = createGame(canvas, {}, { autoplay: true, difficulty: 1 });
+    demo.start();
+    currentController = { destroy() { demo.destroy(); } };
+  }).catch(() => { canvas.closest('.attract')?.remove(); });
+}
+
+/** The last borne played — the one thing a returning visitor wants. First visit: Tetris. */
+function resumeCard(last) {
   const g = last || getGame('tetris') || GAMES[0];
   const d = getDifficulty(g.id);
   const best = getBestLabel(g.id, d);
   return `
-    <a class="feature" href="#/game/${g.id}" style="--ink: ${g.ink}">
-      ${art(g, true)}
-      <span class="feature-foot">
-        <span class="feature-info">
+    <a class="resume" href="#/game/${g.id}" style="--ink: ${g.ink}"
+       aria-label="${esc(`${last ? 'Reprendre' : 'Jouer à'} ${g.name} — ${g.category}, ${levelName(d)}`)}">
+      <img src="img/games/${g.id}.png" alt="" width="480" height="360" loading="eager" fetchpriority="high" decoding="async" onerror="this.remove()">
+      <span class="resume-foot">
+        <span class="resume-info">
           <span class="eyebrow">${last ? 'Ta dernière borne' : 'À essayer'}</span>
-          <b class="feature-name">${esc(g.name)}</b>
-          <span class="feature-meta">${esc(g.category)} · ${esc(levelName(d))}${best === null ? '' : ` · record ${esc(fmtScore(best))}`}</span>
+          <span class="resume-name">${esc(g.name)}</span>
+          <span class="resume-meta">${esc(g.category)} · ${esc(levelName(d))}${best === null ? '' : ` · record ${esc(fmtScore(best))}`}</span>
         </span>
         <span class="btn btn-primary">${last ? 'Reprendre' : 'Jouer'}</span>
       </span>
     </a>`;
 }
 
-/* --- Catalog ------------------------------------------------------------- */
+/* --- Catalogue ------------------------------------------------------------ */
+
+const SORTS = {
+  cat:  { label: 'Ordre du catalogue', fn: null },
+  az:   { label: 'Nom (A → Z)', fn: (a, b) => a.name.localeCompare(b.name, 'fr') },
+  best: { label: 'Tes records d’abord', fn: (a, b) => (getAnyBest(b.id) ?? -1) - (getAnyBest(a.id) ?? -1) },
+  easy: { label: 'Les plus faciles', fn: (a, b) => a.difficulty - b.difficulty },
+  hard: { label: 'Les plus corsées', fn: (a, b) => b.difficulty - a.difficulty },
+};
 
 function renderGames() {
   setTitle('Les bornes');
-  const categories = ['Tous', ...new Set(GAMES.map((g) => g.category))];
+  const cats = ['Tous', ...new Set(GAMES.map((g) => g.category))];
   const countOf = (c) => (c === 'Tous' ? COUNT : GAMES.filter((g) => g.category === c).length);
   let query = '';
-  let filter = 'Tous';
+  let cat = 'Tous';
+  let freshOnly = false;
+  let sort = 'cat';
 
   render(`
     <header class="page-head">
       <span class="eyebrow">Catalogue</span>
       <h1 class="page-title">Choisis ta borne</h1>
     </header>
+
     <div class="toolbar">
-      <input type="search" id="search" placeholder="Chercher une borne…" aria-label="Chercher une borne par nom ou par genre">
-      ${categories.map((c) => `
-        <button class="filter-chip${c === 'Tous' ? ' active' : ''}" type="button"
-                data-cat="${esc(c)}" aria-pressed="${c === 'Tous'}">${esc(c)}<small aria-hidden="true">${countOf(c)}</small></button>
-      `).join('')}
-      <button class="filter-chip shuffle" type="button" id="shuffle">Au hasard</button>
+      <div class="toolbar-row">
+        <input type="search" id="search" class="search" placeholder="Chercher une borne…"
+               aria-label="Chercher une borne par nom, genre ou description" autocomplete="off">
+        <span class="sort-wrap">
+          <label for="sort">Trier</label>
+          <select id="sort" class="sort">
+            ${Object.entries(SORTS).map(([k, v]) => `<option value="${k}">${esc(v.label)}</option>`).join('')}
+          </select>
+        </span>
+      </div>
+      <div class="toolbar-row chips" role="group" aria-label="Filtrer les bornes">
+        ${cats.map((c) => `
+          <button class="chip" type="button" data-cat="${esc(c)}" aria-pressed="${c === 'Tous'}">${esc(c)}<small>${countOf(c)}</small></button>
+        `).join('')}
+        <button class="chip chip-ghost" type="button" id="only-new" aria-pressed="false">Jamais jouées</button>
+        <button class="chip chip-ghost" type="button" id="shuffle">Au hasard</button>
+      </div>
     </div>
-    <div class="tile-grid" id="games-grid"></div>
-    <p class="eyebrow" id="result-count" role="status" style="margin-top:1.5rem"></p>
+
+    <p class="result-line" id="result-line" role="status"></p>
+    <div class="grid" id="games-grid" style="margin-top:var(--s4)"></div>
   `);
 
   const grid = app.querySelector('#games-grid');
-  const count = app.querySelector('#result-count');
+  const line = app.querySelector('#result-line');
 
   function paint() {
     const q = norm(query.trim());
-    const hits = GAMES.filter((g) => (
-      (filter === 'Tous' || g.category === filter) &&
+    let hits = GAMES.filter((g) => (
+      (cat === 'Tous' || g.category === cat) &&
+      (!freshOnly || !hasPlayed(g.id)) &&
       (!q || norm(`${g.name} ${g.category} ${g.description}`).includes(q))
     ));
+    const by = SORTS[sort]?.fn;
+    if (by) hits = [...hits].sort(by);
+
     grid.innerHTML = hits.length
-      ? hits.map(cabTile).join('')
-      : `<p class="empty-state">Aucune borne ne correspond. Essaie un autre nom ou retire le filtre.</p>`;
-    count.textContent = `${bornes(hits.length)} sur ${COUNT}`;
+      ? hits.map((g, i) => gameCard(g, i < 4)).join('')
+      : `<div class="empty">
+           <b>Aucune borne ne correspond</b>
+           <span>${esc(query.trim() ? `Rien pour « ${query.trim()} »` : 'Aucune borne dans cette combinaison')}${cat === 'Tous' ? '' : esc(` dans ${cat}`)}${freshOnly ? ', parmi celles jamais jouées' : ''}.</span>
+           <button class="btn" type="button" data-clear>Tout effacer</button>
+         </div>`;
+
+    const tags = [];
+    if (query.trim()) tags.push(`<span>« ${esc(query.trim())} »</span>`);
+    if (cat !== 'Tous') tags.push(`<span>${esc(cat)}</span>`);
+    if (freshOnly) tags.push('<span>Jamais jouées</span>');
+    if (sort !== 'cat') tags.push(`<span>${esc(SORTS[sort].label)}</span>`);
+    line.innerHTML = `
+      <span><b>${hits.length}</b> borne${hits.length > 1 ? 's' : ''} sur ${COUNT}</span>
+      ${tags.length ? `<span class="active-filters">${tags.join('')}</span>
+        <button class="btn btn-sm" type="button" data-clear>Tout effacer</button>` : ''}`;
+    app.querySelectorAll('[data-clear]').forEach((b) => b.addEventListener('click', clearAll));
+  }
+
+  function clearAll() {
+    query = ''; cat = 'Tous'; freshOnly = false; sort = 'cat';
+    app.querySelector('#search').value = '';
+    app.querySelector('#sort').value = 'cat';
+    app.querySelector('#only-new').setAttribute('aria-pressed', 'false');
+    app.querySelectorAll('.chip[data-cat]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.cat === 'Tous')));
+    paint();
+    app.querySelector('#search').focus();
+    announce('Filtres effacés');
   }
 
   paint();
 
-  app.querySelector('#search').addEventListener('input', (e) => {
-    query = e.target.value;
-    paint();
-  });
+  app.querySelector('#search').addEventListener('input', (e) => { query = e.target.value; paint(); });
+  app.querySelector('#sort').addEventListener('change', (e) => { sort = e.target.value; paint(); });
 
-  app.querySelectorAll('.filter-chip[data-cat]').forEach((btn) => {
+  app.querySelectorAll('.chip[data-cat]').forEach((btn) => {
     btn.addEventListener('click', () => {
-      filter = btn.dataset.cat;
-      app.querySelectorAll('.filter-chip[data-cat]').forEach((b) => {
-        const on = b === btn;
-        b.classList.toggle('active', on);
-        b.setAttribute('aria-pressed', String(on));
-      });
+      cat = btn.dataset.cat;
+      app.querySelectorAll('.chip[data-cat]').forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
       paint();
     });
   });
 
-  // "Au hasard": a cabinet you haven't tried yet, if any are left.
+  app.querySelector('#only-new').addEventListener('click', (e) => {
+    freshOnly = !freshOnly;
+    e.currentTarget.setAttribute('aria-pressed', String(freshOnly));
+    paint();
+  });
+
+  // "Au hasard": a borne you have not tried yet, if any are left.
   app.querySelector('#shuffle').addEventListener('click', () => {
-    const fresh = GAMES.filter((g) => !hasPlayed(g.id));
-    const pool = fresh.length ? fresh : GAMES;
+    const untouched = GAMES.filter((g) => !hasPlayed(g.id));
+    const pool = untouched.length ? untouched : GAMES;
     location.hash = `#/game/${pool[(Math.random() * pool.length) | 0].id}`;
   });
 }
 
-/* --- Scores -------------------------------------------------------------- */
+/* --- Scores --------------------------------------------------------------- */
 
 function renderScores() {
   setTitle('Meilleurs scores');
   const fmtDate = (ts) => new Date(ts).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' });
 
   const played = GAMES.filter((g) => hasPlayed(g.id));
-  const withScore = GAMES.filter((g) => getAnyBest(g.id) !== null);
-  const total = withScore.reduce((sum, g) => sum + (getAnyBest(g.id) || 0), 0);
+  const ranked = GAMES.filter((g) => getAnyBest(g.id) !== null);
+  const total = ranked.reduce((sum, g) => sum + (getAnyBest(g.id) || 0), 0);
+  // Your three biggest numbers, whatever borne they came from.
+  const podium = [...ranked].sort((a, b) => getAnyBest(b.id) - getAnyBest(a.id)).slice(0, 3);
 
   render(`
     <header class="page-head">
@@ -306,30 +418,58 @@ function renderScores() {
       <h1 class="page-title">Meilleurs scores</h1>
     </header>
 
-    <dl class="summary">
-      <div class="summary-tile"><dt>Bornes essayées</dt><dd>${played.length} / ${COUNT}</dd></div>
-      <div class="summary-tile"><dt>Bornes classées</dt><dd>${withScore.length}</dd></div>
-      <div class="summary-tile"><dt>Cumul des records</dt><dd>${fmtScore(total)}</dd></div>
+    <dl class="stat-row">
+      <div class="stat"><dt>Bornes essayées</dt><dd>${played.length} <span class="data">/ ${COUNT}</span></dd></div>
+      <div class="stat"><dt>Bornes classées</dt><dd>${ranked.length}</dd></div>
+      <div class="stat"><dt>Cumul des records</dt><dd>${fmtScore(total)}</dd></div>
     </dl>
 
-    <div class="scores-grid">
-      ${GAMES.map((g) => `
-        <div class="score-card" data-game="${g.id}" style="--ink: ${g.ink}">
-          <a class="score-title" href="#/game/${g.id}">${art(g)}<b>${esc(g.name)}</b></a>
-          <div class="score-head">${diffControl(g.id, `s-${g.id}`)}</div>
-          <div class="score-body" id="sb-${g.id}"></div>
-        </div>
-      `).join('')}
+    ${podium.length ? `
+      <div class="podium">
+        ${podium.map((g, i) => `
+          <a class="podium-item" href="#/game/${g.id}" style="--ink: ${g.ink}"
+             aria-label="${esc(`${g.name}, ${i + 1}${i ? 'e' : 'er'} de tes records : ${fmtScore(getAnyBest(g.id))}`)}">
+            <span class="podium-rank" aria-hidden="true">${i + 1}</span>
+            <span class="podium-info">
+              <span class="podium-name">${esc(g.name)}</span>
+              <span class="podium-score">${esc(fmtScore(getAnyBest(g.id)))}</span>
+            </span>
+          </a>`).join('')}
+      </div>` : ''}
+
+    ${ranked.length ? '' : `
+      <div class="empty" style="margin-bottom:var(--s5)">
+        <b>Rien d’enregistré pour l’instant</b>
+        <span>Une partie qui marque des points entre ici, avec tes initiales.</span>
+        <a class="btn btn-primary" href="#/games">Choisir une borne</a>
+      </div>`}
+
+    <div class="score-list">
+      ${GAMES.map((g) => {
+        const best = getBestLabel(g.id, getDifficulty(g.id));
+        return `
+        <details class="score-item" data-game="${g.id}" style="--ink: ${g.ink}">
+          <summary>
+            <img class="score-thumb" src="img/games/${g.id}.png" alt="" width="480" height="360" loading="lazy" decoding="async" onerror="this.remove()">
+            <span class="score-name">${esc(g.name)}<small>${esc(g.category)} · ${esc(levelName(getDifficulty(g.id)))}</small></span>
+            <span class="score-best${best === null ? ' none' : ''}">${best === null ? 'aucun score' : esc(fmtScore(best))}</span>
+          </summary>
+          <div class="score-panel">
+            ${diffControl(g.id, `s-${g.id}`)}
+            <div id="sb-${g.id}"></div>
+          </div>
+        </details>`;
+      }).join('')}
     </div>
   `);
 
   function paintScores(g, d) {
     const list = getHighScores(g.id, d);
-    const body = app.querySelector(`#sb-${g.id}`);
+    const body = app.querySelector(`#sb-${CSS.escape(g.id)}`);
     if (!body) return;
     body.innerHTML = list.length ? `
       <table class="score-table">
-        <caption>Meilleurs scores — ${esc(g.name)} — ${esc(levelName(d))}</caption>
+        <caption>${esc(g.name)} — ${esc(levelName(d))}</caption>
         <tbody>
           ${list.map((row, i) => `
             <tr>
@@ -341,46 +481,57 @@ function renderScores() {
           `).join('')}
         </tbody>
       </table>`
-      : `<p class="score-empty">Rien en ${esc(levelName(d).toLowerCase())} — la borne t'attend.</p>`;
+      : `<p class="score-empty">Rien en ${esc(levelName(d).toLowerCase())} — la borne t’attend.</p>`;
   }
 
-  GAMES.forEach((g) => {
-    paintScores(g, getDifficulty(g.id));
-    // The picker here only browses the table; it doesn't change what you'll play.
-    bindSeg(app, `s-${g.id}`, (d) => paintScores(g, d));
+  // Tables are built when a borne is opened: 34 of them at once would be wasted work.
+  app.querySelectorAll('.score-item').forEach((item) => {
+    const g = getGame(item.dataset.game);
+    let wired = false;
+    item.addEventListener('toggle', () => {
+      if (!item.open || wired) return;
+      wired = true;
+      paintScores(g, getDifficulty(g.id));
+      bindSeg(item, `s-${g.id}`, (d) => paintScores(g, d));   // browses the table, does not change what you play
+    });
   });
 }
 
-/* --- Settings ------------------------------------------------------------ */
+/* --- Settings ------------------------------------------------------------- */
 
 function renderSettings() {
   setTitle('Réglages');
   const s = getSettings();
   // The whole row is the label, so the text is a hit target too; the switch is named by its title.
   const row = (id, title, desc, on) => `
-    <label class="settings-row" for="${id}">
+    <label class="row" for="${id}">
       <span class="label"><b id="${id}-t">${title}</b><span id="${id}-d">${desc}</span></span>
       <span class="switch"><input type="checkbox" role="switch" id="${id}" aria-labelledby="${id}-t" aria-describedby="${id}-d"${on ? ' checked' : ''}><span class="slider"></span></span>
     </label>`;
+
+  const d = dataSummary();
+  const held = d.rows
+    ? `${d.rows} score${d.rows > 1 ? 's' : ''} sur ${d.tables} borne${d.tables > 1 ? 's' : ''}, et tes réglages.`
+    : 'Aucun score enregistré pour l’instant — seuls tes réglages seraient effacés.';
 
   render(`
     <header class="page-head">
       <span class="eyebrow">Stocké dans ce navigateur</span>
       <h1 class="page-title">Réglages</h1>
     </header>
-    <div class="settings-list">
+    <div class="list">
       ${row('set-theme', 'Thème sombre', 'Décoché, le site passe en thème clair. L’écran de jeu reste noir.', s.theme === 'dark')}
       ${row('set-sfx', 'Effets sonores', 'Sons générés à la volée, aucun fichier téléchargé.', s.sfx)}
       ${row('set-music', 'Musique', 'Airs chiptune joués par certaines bornes, qui accélèrent avec le niveau.', s.music)}
       ${row('set-crt', 'Écran cathodique', 'Lignes de balayage et verre bombé, comme sur la borne. Désactivé par défaut sur téléphone.', s.crt)}
-      <div class="settings-row">
+      <div class="row">
         <label class="label" for="set-volume"><b>Volume</b><span id="vol-read" class="data">${Math.round(s.volume * 100)} %</span></label>
-        <input type="range" id="set-volume" min="0" max="1" step="0.05" value="${s.volume}">
+        <input type="range" id="set-volume" class="range" min="0" max="1" step="0.05" value="${s.volume}">
       </div>
       ${row('set-anim', 'Animations', 'Décoché, les transitions et les effets de survol s’arrêtent.', s.animations)}
-      <div class="settings-row">
-        <span class="label"><b>Effacer les données locales</b><span>Supprime les scores et les réglages. Sans retour possible.</span></span>
-        <button class="btn btn-danger" type="button" id="reset-data">Effacer</button>
+      <div class="row">
+        <span class="label"><b>Effacer les données locales</b><span id="reset-desc">${esc(held)} Sans retour possible.</span></span>
+        <button class="btn btn-danger" type="button" id="reset-data" aria-describedby="reset-desc">Effacer</button>
       </div>
     </div>
   `);
@@ -405,14 +556,16 @@ function renderSettings() {
     applySettings();
   });
   app.querySelector('#reset-data').addEventListener('click', () => {
-    if (!confirm('Effacer tous les scores et réglages enregistrés sur cette machine ? Cette action est irréversible.')) return;
+    const what = d.rows ? `${d.rows} score${d.rows > 1 ? 's' : ''} et tes réglages` : 'tes réglages';
+    if (!confirm(`Effacer ${what} sur cette machine ?\n\nCette action est irréversible.`)) return;
     resetAllData();
     applySettings();
     renderSettings();
+    announce('Données locales effacées');
   });
 }
 
-/* --- About --------------------------------------------------------------- */
+/* --- About ---------------------------------------------------------------- */
 
 function renderAbout() {
   setTitle('À propos');
@@ -424,7 +577,7 @@ function renderAbout() {
       <h1 class="page-title">À propos</h1>
     </header>
     <div class="prose">
-      <p>Mini Arcade est fait par <b>SteelTV</b> (LeVraiSteelTV). C'est un site entièrement statique : pas de serveur, pas de base de données, pas de compte. Tout tourne dans ton navigateur, et les scores vivent dans le <code>localStorage</code> de ta machine. Le code est ouvert : ${ext(gh, 'github.com/itsteeltv/game')}.</p>
+      <p>Mini Arcade est fait par <b>SteelTV</b> (LeVraiSteelTV) : ${COUNT} bornes jouables dans le navigateur. C'est un site entièrement statique — pas de serveur, pas de base de données, pas de compte. Tout tourne chez toi, et les scores vivent dans le <code>localStorage</code> de ta machine. Le code est ouvert : ${ext(gh, 'github.com/itsteeltv/game')}.</p>
 
       <h2>Sur téléphone</h2>
       <p>Installe le site comme une appli : sur iPhone, <b>Partager → Sur l'écran d'accueil</b> ; sur Android, <b>menu → Installer l'application</b>. Il s'ouvre alors en plein écran et marche même sans réseau. Tourne le téléphone pour jouer en mode console portable.</p>
@@ -436,12 +589,12 @@ function renderAbout() {
       <h2>Vie privée</h2>
       <p>Aucune collecte, aucun tracker, aucune dépendance externe. Rien ne sort du navigateur — et « Effacer les données locales », dans les réglages, efface vraiment tout. Le bouton « Partager » d'un score ne fait que préparer un texte et un lien : rien n'est envoyé tant que tu ne l'envoies pas toi-même.</p>
 
-      <h2>Les graphismes</h2>
-      <p>Chaque borne reprend les règles et l'ambiance de son époque — vitesse qui monte, sons synthétisés, initiales au tableau des scores — mais sprites, labyrinthe et sons sont faits pour ce site. Des hommages au principe, pas des copies. Seule musique reprise : <i>Korobeiniki</i>, chanson populaire russe du XIXᵉ siècle, dans le domaine public.</p>
+      <h2>Les graphismes et les règles</h2>
+      <p>Chaque borne d'époque reprend les règles et l'ambiance de son temps — vitesse qui monte, sons synthétisés, initiales au tableau des scores — mais sprites, labyrinthes et sons sont faits pour ce site. Des hommages au principe, pas des copies. Les bornes maison (Flipper, Plateformes, Rallye, Tuyaux, Le Mot, Défense, Caverne, Entrepôt, Gemmes, Bulles…) sont écrites ici de bout en bout, niveaux compris. Les musiques sont composées pour le site, sauf une reprise : <i>Korobeiniki</i>, chanson populaire russe du XIXᵉ siècle, dans le domaine public.</p>
 
       <h2>Ajouter une borne</h2>
       <p>Un jeu est un module autonome de <code>js/games/</code> qui exporte <code>createGame(canvas, host, opts)</code> et renvoie <code>start</code>, <code>togglePause</code>, <code>input</code> et <code>destroy</code>. Il reçoit <code>host.onStats</code> pour l'afficheur, <code>host.onGameOver</code> pour la fin de partie et <code>host.sfx</code> pour le son ; <code>opts.difficulty</code> vaut 0, 1 ou 2.</p>
-      <p>Une fois le module écrit, ajoute son entrée dans <code>js/catalog.js</code> — nom, encre, pictogramme, genre, difficulté — puis lance <code>node tools/shoot.mjs identifiant</code> pour photographier son écran. Le reste du site s'adapte, et le jeu n'est téléchargé qu'au moment où on le lance.</p>
+      <p>Une fois le module écrit, ajoute son entrée dans <code>js/catalog.js</code> — nom, encre, pictogramme, genre, difficulté — puis lance <code>node tools/shoot.mjs identifiant</code> pour photographier son écran. Le reste du site s'adapte, le cache hors ligne se met à jour tout seul, et le jeu n'est téléchargé qu'au moment où on le lance.</p>
     </div>
   `);
 }
@@ -456,6 +609,7 @@ function renderGamePage(id) {
   setLastGame(id);
   let diff = getDifficulty(id);
   const best = getBestLabel(id, diff);
+  const coarse = matchMedia('(pointer: coarse)').matches;
 
   // The stage (bar, screen, readout, pad) is sized to the viewport on phones so
   // nothing needs scrolling mid-game; options and help sit below it.
@@ -502,7 +656,10 @@ function renderGamePage(id) {
         <button class="btn" type="button" id="restart-btn">Recommencer</button>
       </div>
 
-      <p class="help-text" id="help-text"></p>
+      <details class="help"${coarse ? '' : ' open'}>
+        <summary>Règles et commandes</summary>
+        <p class="help-text" id="help-text"></p>
+      </details>
     </section>
   `);
 
@@ -512,11 +669,16 @@ function renderGamePage(id) {
   // Contain-fit the canvas in its screen at any size, up or down. The games map
   // pointer coordinates from the canvas box, so it must stay undistorted.
   function fit() {
+    // The frame takes the borne's own shape — a portrait borne is not letterboxed into a
+    // 4:3 box. Read from the canvas's intrinsic size, never from its laid-out size, or the
+    // observer would feed its own result back in.
+    screenEl.style.aspectRatio = `${canvas.width} / ${canvas.height}`;
     const s = Math.min(screenEl.clientWidth / canvas.width, screenEl.clientHeight / canvas.height);
     canvas.style.width = `${Math.floor(canvas.width * s)}px`;
     canvas.style.height = `${Math.floor(canvas.height * s)}px`;
     canvas.style.imageRendering = s >= 1 ? 'pixelated' : 'auto'; // crisp upscale; no dropped lines downscaled
   }
+  fit();                     // before the first paint: the observer fires too late and the canvas jumps
   const resizer = new ResizeObserver(fit);
   resizer.observe(screenEl);
   const overlay = app.querySelector('#overlay');
@@ -533,7 +695,6 @@ function renderGamePage(id) {
   const statLives = app.querySelector('#stat-lives');
   const livesWrap = app.querySelector('#lives-wrap');
 
-  const coarse = matchMedia('(pointer: coarse)').matches;
   app.querySelector('#help-text').innerHTML = coarse
     ? (game.touchKeys || 'Utilise les commandes sous l’écran.')
     : `${game.keys}${game.ownsEsc ? '' : ' <kbd>Échap</kbd> met en pause.'}`;
@@ -661,7 +822,21 @@ function renderGamePage(id) {
     overlay.hidden = true;
     onStats({ score: 0, level: 1 });
 
-    const { createGame } = await import(game.module);
+    let createGame;
+    try {
+      ({ createGame } = await import(game.module));
+    } catch (err) {
+      if (mine !== renderToken) return;
+      // Offline on a borne that was never cached, or a broken file: say it, don't sit on a black screen.
+      showOverlay(
+        'Borne indisponible',
+        `Le jeu n’a pas pu être chargé.${navigator.onLine ? '' : ' Tu es hors ligne : ouvre cette borne une fois avec du réseau et elle restera jouable.'}`,
+        'Réessayer', start,
+      );
+      announce('La borne n’a pas pu être chargée.');
+      pauseBtn.disabled = true;
+      return;
+    }
     if (mine !== renderToken) return; // navigated away while the module loaded
 
     controller?.destroy();
@@ -804,11 +979,12 @@ function renderGamePage(id) {
     if (t.closest?.('input, textarea, select')) return;   // typing initials, not playing
     // A control the player reached with Tab keeps Enter and Space: the key presses it, it doesn't play.
     if (isPress(e) && t.closest?.('a, button, summary, [role="button"]') && t.matches(':focus-visible')) return;
-    if (controller?.ownsKeyboard && !finished) return;   // Doom reads the whole keyboard itself
+    // Escape stays the page's pause for every borne but the ones that claim it (Doom's own menu).
     if (e.key === 'Escape') {
-      if (e.type === 'keydown') setPaused();
+      if (!game.ownsEsc && e.type === 'keydown') setPaused();
       return;
     }
+    if (controller?.ownsKeyboard && !finished) return;   // Doom and Le Mot read the keyboard themselves
     // On the title, pause and game-over screens Enter and Space are the start button — but not at
     // once: someone mashing Space as they die has to see their score before a new game begins.
     if (isPress(e) && !overlay.hidden) {
@@ -856,10 +1032,13 @@ function renderNotFound(msg) {
       <span class="eyebrow">Erreur 404</span>
       <h1 class="page-title">Page introuvable</h1>
     </header>
-    <p class="intro-lede">${esc(msg)}</p>
-    <div class="intro-actions">
-      <a class="btn btn-primary" href="#/games">Voir les bornes</a>
-      <a class="btn" href="#/">Accueil</a>
+    <div class="empty">
+      <b>${esc(msg)}</b>
+      <span>Le catalogue, lui, est toujours là : ${bornes()} t'attendent.</span>
+      <span class="hero-actions">
+        <a class="btn btn-primary" href="#/games">Voir les bornes</a>
+        <a class="btn" href="#/">Accueil</a>
+      </span>
     </div>
   `);
 }

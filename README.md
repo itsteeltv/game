@@ -29,29 +29,69 @@ labyrinthe et sons sont dessinés ou synthétisés pour ce site.
 | **Alunissage** | 1979 | Nouvelle. Module vectoriel, gravité, pistes ×2/×3/×5, instruments de bord ; la partie s'arrête quand le réservoir est vide |
 | **Motos lumière** | 1982 | Nouvelle. Murs de lumière, rivaux qui cherchent à t'enfermer, un rival de plus par manche |
 | **Freedoom** | 1993 | Le vrai moteur de *Doom* (GPL) en WebAssembly avec Freedoom, un Doom complet et libre en 4 épisodes ; charge ton propre `DOOM.WAD` si tu l'as. Son, musique, sauvegardes, commandes tactiles |
+| **Pyramide** | 1982 | Nouvelle. Pyramide isométrique de 28 cubes, sauts en diagonale seulement, boules qui dévalent, disque volant pour un sauvetage par tableau |
+| **Bombes** | 1983 | Nouvelle. Labyrinthe de piliers, briques destructibles, sortie et bonus cachés dessous, explosions en chaîne qui ne t'épargnent pas |
+| **Éboulis** | 1984 | Nouvelle. Grotte à creuser, rochers qui tombent et roulent sur les dos ronds, quota de diamants et chrono avant la sortie |
+| **Tuyaux** | 1989 | Nouvelle. File de pièces imposée, compte à rebours avant le lâcher d'eau, croix réutilisable une fois, fuite = essai perdu |
+
+### Les bornes maison
+
+Celles-là ne copient rien : règles, niveaux et dessins sont écrits pour ce site.
+
+| Borne | Genre | Ce qu'elle a de particulier |
+|---|---|---|
+| Éteins-Tout | Puzzle | Une case inverse ses voisines ; le mélange est fait de vrais coups, donc toujours résoluble, et l'indice vient de là |
+| Taquin | Puzzle | Mélange toujours résoluble, couleurs qui aident autant que les chiffres |
+| Tour de Hanoï | Réflexion | Trois piquets, le minimum de coups comme référence |
+| Tape-Taupe | Réflexe | Séries qui multiplient, taupe dorée, bombes à éviter |
+| Saute-Nuages | Arcade | Rebond automatique, ressorts, nuages d'orage qui s'effritent |
+| Cosmo-Course | Réflexe | Saut à hauteur variable, rochers et drones, étoiles à ramasser |
+| Hockey de Table | Action | Palet quasi sans frottement, maillet au doigt |
+| Reversi | Réflexion | IA qui aime les coins et les bords, indice à la demande |
+| Gemmes | Puzzle | Gemmes rayées à 4, arc-en-ciel à 5, combos en cascade |
+| Bulles | Arcade | Nid suspendu, grappes qui tombent, plafond qui descend |
+| **Entrepôt** | Puzzle | Sokoban : huit niveaux dessinés à la main, un « par » par niveau, annulation illimitée |
+| **Le Mot** | Réflexion | Trois mots français de cinq lettres par partie, clavier AZERTY à l'écran, première lettre donnée |
+| **Défense** | Réflexion | Tower defense : une route fixe, deux tours (dégâts, ralentissement) sur trois niveaux, jusqu'à 14 vagues |
+| **Caverne** | Arcade | Plateforme : cinq salles, saut à hauteur variable, plateforme mobile, pics et lave, chrono par salle |
+| **Flipper** | Action | Vraie table : bumpers, lance-bille, flips que tu dois synchroniser, cinq cibles tombantes qui montent le multiplicateur jusqu'à ×5 |
+| **Rallye** | Réflexe | Quatre voies, trafic qui se densifie, réservoir qui descend, bidons à ramasser, braquage continu (pas de voie à voie) |
+| **Plateformes** | Arcade | Six tableaux d'un écran, saut coupé si tu lâches la touche, *coyote time*, marcheurs à écraser, pièces et drapeau |
 
 Chaque borne porte sa propre couleur d'encre : elle identifie le jeu sur sa carte, sur son
-marquee et dans le tableau des scores.
+écran et dans le tableau des scores.
 
 ## Parti pris visuel
 
-Une interface qui s'efface derrière les jeux, dans l'esprit des apps Apple :
+Une salle d'arcade le soir : fond indigo profond, deux halos (orange et violet) peints une
+seule fois derrière la page, et une grille de verre à peine visible qui s'efface vers le bas.
+Chaque borne tient sa couleur d'encre (`--ink`) et s'en sert partout.
 
-- les vignettes montrent **le vrai écran de chaque jeu** (`img/games/<id>.png`, capturé
-  pendant une partie) — on choisit en voyant à quoi on va jouer ;
-- chrome translucide (`backdrop-filter`) sous lequel le contenu défile, coins continus,
-  police système, interlettrage qui se resserre quand le texte grossit ;
+- **un rail flottant à gauche** sur grand écran (marquise de la marque, cinq rubriques
+  avec une barre lumineuse sur l'onglet actif, son/thème/code), **une barre en haut et des
+  onglets sous le pouce** sur téléphone ; la barre d'onglets disparaît en partie ;
+- les cartes sont des **bornes** : bandeau lumineux en haut, écran au milieu (la vraie
+  capture du jeu, `img/games/<id>.png`), socle en bas avec le nom et ton record ; au survol,
+  la borne se soulève et son encre s'allume ;
+- l'accueil s'ouvre sur une **marquise** : le texte à gauche, une borne qui **joue toute
+  seule** à droite (Pong en mode démo, coupé si « Animations » est décoché ou si le système
+  demande moins de mouvement), puis une bande de compteurs et **une étagère par genre**
+  qui défile horizontalement ;
+- la page des scores commence par un **podium** de tes trois plus gros records ;
+- un seul jeu de variables CSS (couleurs, type, espaces, rayons, ombres, halo, focus,
+  animations) dans `:root`, et un thème clair qui ne change que des variables ;
+- le cadre de l'écran prend **la forme du jeu** : une borne en portrait n'est pas noyée
+  dans un cadre 4/3 ;
 - tout réagit à l'appui, jamais au relâchement ; courbes amorties sans rebond ;
 - l'écran de jeu reste noir dans les deux thèmes, et l'encre du jeu y diffuse un halo ;
-- sur téléphone : barre d'onglets sous le pouce, et la page de jeu tient dans l'écran
-  sans défilement (croix à gauche, boutons à droite). Téléphone tourné, la mise en page
-  devient celle d'une console portable : croix, écran, boutons.
+- téléphone tourné, la page de jeu devient une console portable : croix, écran, boutons.
 
-## Les bornes du catalogue
+## Le catalogue
 
-Chaque jeu est présenté comme une petite borne d'arcade : fronton rétroéclairé avec le nom,
-l'écran du jeu (sa capture) dans son cadre, un panneau de commande avec joystick et bouton
-**Jouer**, et une porte à pièces avec le genre et le record. Toute la borne est un lien.
+Recherche (insensible à la casse et aux accents), filtre par genre, filtre « jamais jouées »,
+cinq tris, nombre de résultats, rappel des filtres actifs et bouton **Tout effacer** —
+les quatre marchent ensemble. Les cartes montrent le titre, l'écran, le genre et soit ton
+record, soit la difficulté en points ; une pastille marque les bornes déjà jouées.
 
 ## Freedoom / Doom
 
@@ -75,7 +115,8 @@ l'écran du jeu (sa capture) dans son cadre, un panneau de commande avec joystic
   l'application ». Elle s'ouvre alors en plein écran et **fonctionne hors ligne** (`sw.js`).
 - **Jouer** : croix et boutons sous les pouces ; glissements sur l'écran pour Serpent, 2048,
   Croque-Labyrinthe, Traversée et Tetris ; raquette au doigt pour Pong et Casse-Brique ;
-  toucher l'écran pour Riposte. Téléphone tourné : disposition console portable.
+  volant au doigt pour Rallye, moitié gauche / moitié
+  droite de l'écran pour les flips du Flipper ; toucher l'écran pour Riposte. Téléphone tourné : disposition console portable.
 - L'écran reste allumé pendant une partie, la partie se met en pause si tu changes d'app,
   et un bouton plein écran apparaît quand le navigateur le permet (Android, ordinateur).
 
@@ -84,7 +125,8 @@ l'écran du jeu (sa capture) dans son cadre, un panneau de commande avec joystic
 - **Écran cathodique** (réglable) : lignes de balayage et vignettage sur l'écran de jeu.
 - **Initiales** : un score qui entre dans le top 5 se signe de trois lettres, comme sur borne.
 - **Musique** (réglable) : petit séquenceur chiptune dans `audio.js` (`SONGS`), joué par les
-  bornes qui déclarent `music` dans le catalogue.
+  bornes qui déclarent `music` dans le catalogue. Trois airs : *Korobeiniki* (domaine public,
+  Tetris), `caverne` (Caverne, Plateformes) et `course` (Rallye, Cosmo-Course), écrits ici.
 
 ## Installation
 
@@ -123,28 +165,24 @@ Aucun workflow GitHub Actions n'est requis puisqu'il n'y a pas d'étape de build
 
 ```text
 /
-├── index.html          # shell + header/nav
+├── index.html           # coquille : rail / barre, onglets, pied de page
 ├── manifest.webmanifest # appli installable
-├── sw.js               # cache hors ligne (liste des fichiers à tenir à jour)
-├── tools/doom/         # sources et script de compilation du moteur Doom (GPL)
-├── css/style.css       # thème, layout, composants
-├── img/games/          # une capture d'écran par jeu (vignettes)
-├── img/icons/          # icônes de l'appli installée
+├── sw.js                # cache hors ligne (liste dérivée du catalogue)
+├── css/style.css        # variables, coquille, composants, pages, jeu
+├── img/games/           # une capture d'écran par borne (vignettes)
+├── img/icons/           # icônes de l'appli installée
+├── img/og.png           # carte de partage, dessinée par tools/og.mjs
 ├── js/
-│   ├── app.js          # routeur (hash-based) + rendu des pages
-│   ├── catalog.js      # registre des jeux
-│   ├── storage.js      # scores & paramètres (localStorage)
-│   ├── audio.js        # sons et musique procéduraux (Web Audio API)
-│   └── games/
-│       ├── pong.js
-│       ├── pacman.js
-│       ├── tetris.js
-│       ├── invaders.js
-│       ├── snake.js
-│       ├── breakout.js
-│       ├── 2048.js
-│       └── minesweeper.js
-└── README.md
+│   ├── app.js           # routeur (par ancres) + rendu des pages + page de jeu
+│   ├── catalog.js       # registre des bornes (source unique des titres et URL)
+│   ├── storage.js       # scores & réglages (localStorage, lectures typées)
+│   ├── audio.js         # sons et musique procéduraux (Web Audio API)
+│   └── games/           # un module autonome par borne
+└── tools/
+    ├── shoot.mjs        # photographie l'écran d'une borne -> img/games/<id>.png
+    ├── smoke.mjs        # fait tourner une borne sans navigateur (crash, score, sons)
+    ├── og.mjs           # dessine img/og.png
+    └── doom/            # sources et script de compilation du moteur Doom (GPL)
 ```
 
 ## Ajouter un nouveau jeu
@@ -158,9 +196,13 @@ Aucun workflow GitHub Actions n'est requis puisqu'il n'y a pas d'étape de build
    `difficulty`, `description`, `module`, `touch`.
 3. Ajoute une capture `img/games/<id>.png` du canvas en cours de partie
    (`canvas.toBlob()` depuis la console suffit). Sans elle, la vignette affiche le `glyph`.
-4. Ajoute le module et l'image à la liste `FILES` de `sw.js` et change `CACHE` (`-v3`…),
-   sinon le jeu ne marchera pas hors ligne. Une entrée manquante (404) fait échouer
-   toute l'installation du cache : vérifie que chaque chemin existe.
+4. Rien à faire pour le hors ligne : `sw.js` lit les identifiants dans `js/catalog.js`
+   et met en cache `js/games/<id>.js` et `img/games/<id>.png` tout seul. Change juste
+   `CACHE` (`-v6`…) pour que les visiteurs déjà installés reprennent la nouvelle liste.
+5. `node tools/shoot.mjs <id>` photographie l'écran de la borne, et
+   `node tools/og.mjs` redessine l'image de partage (elle annonce le nombre de bornes).
+6. `node tools/smoke.mjs js/games/<id>.js` fait tourner la borne hors navigateur : elle
+   doit survivre à quelques milliers d'images et marquer des points.
 
 Options du catalogue : `swipe` (glissements = croix), `music` (id d'un air de `SONGS`),
 `livesLabel` (renomme le troisième compteur), `custom` (jeu avec ses propres menus : pas de

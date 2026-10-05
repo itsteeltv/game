@@ -6,13 +6,13 @@
 <title>Mini Arcade — des bornes dans ton navigateur</title>
 <meta name="description" content="Des bornes d'arcade jouables directement dans le navigateur, sur ordinateur comme sur téléphone. Rien à installer, aucun compte, tes scores restent sur ta machine.">
 <meta name="author" content="SteelTV">
-<meta name="theme-color" content="#050506">
+<meta name="theme-color" content="#07080D">
 <link rel="canonical" href="https://itsteeltv.github.io/game/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Mini Arcade">
 <meta property="og:locale" content="fr_FR">
 <meta property="og:title" content="Mini Arcade — des bornes dans ton navigateur">
-<meta property="og:description" content="Une salle d'arcade dans ton navigateur : Tetris, Pong, Doom, Gemmes, Reversi… Rien à installer, aucun compte.">
+<meta property="og:description" content="Une salle d'arcade dans ton navigateur : Tetris, Pong, Doom, Flipper, Plateformes, Le Mot… Rien à installer, aucun compte.">
 <meta property="og:url" content="https://itsteeltv.github.io/game/">
 <meta property="og:image" content="https://itsteeltv.github.io/game/img/og.png">
 <meta property="og:image:width" content="1200">
@@ -23,7 +23,7 @@
 <meta name="twitter:description" content="Une salle d'arcade dans ton navigateur. Rien à installer, aucun compte.">
 <meta name="twitter:image" content="https://itsteeltv.github.io/game/img/og.png">
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Mini Arcade","url":"https://itsteeltv.github.io/game/","inLanguage":"fr","description":"Des bornes d'arcade jouables dans le navigateur.","author":{"@type":"Organization","name":"SteelTV","alternateName":"LeVraiSteelTV"}}</script>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 20 24%22><rect x=%221%22 y=%221%22 width=%2218%22 height=%2222%22 rx=%222%22 fill=%22%23FF4D1F%22/><rect x=%224%22 y=%225%22 width=%2212%22 height=%229%22 rx=%221%22 fill=%22%230B0A0D%22/><rect x=%225%22 y=%2217%22 width=%2210%22 height=%222%22 rx=%221%22 fill=%22%230B0A0D%22/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 20 24%22><rect x=%221%22 y=%221%22 width=%2218%22 height=%2222%22 rx=%223%22 fill=%22%23FF4D1F%22/><rect x=%224%22 y=%225%22 width=%2212%22 height=%229%22 rx=%221%22 fill=%22%230B0C0F%22/><rect x=%225%22 y=%2217%22 width=%2210%22 height=%222%22 rx=%221%22 fill=%22%230B0C0F%22/></svg>">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="img/icons/apple-touch-icon.png">
 <meta name="mobile-web-app-capable" content="yes">
@@ -34,9 +34,9 @@
   // Theme before first paint (no dark flash for a light-theme visitor): saved choice, else the system's.
   try {
     var s = JSON.parse(localStorage.getItem('arcade:settings') || '{}');
-    var t = s.theme || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    var t = (s && typeof s === 'object' && s.theme) || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
     document.documentElement.setAttribute('data-theme', t);
-    document.querySelector('meta[name="theme-color"]').setAttribute('content', t === 'light' ? '#F5F5F7' : '#050506');
+    document.querySelector('meta[name="theme-color"]').setAttribute('content', t === 'light' ? '#F2F3F8' : '#07080D');
   } catch (e) {}
 </script>
 <link rel="stylesheet" href="css/style.css">
@@ -49,19 +49,21 @@
 <body>
 <a class="skip-link" href="#app">Aller au contenu</a>
 
-<header class="site-header">
-  <div class="header-inner">
-    <a href="#/" class="logo" aria-label="Mini Arcade, accueil">
-      <svg viewBox="0 0 20 24" aria-hidden="true">
-        <rect x="1" y="1" width="18" height="22" rx="2" fill="var(--flame)"/>
-        <rect x="4" y="5" width="12" height="9" rx="1" fill="var(--bg)"/>
-        <rect x="5" y="17" width="10" height="2" rx="1" fill="var(--bg)"/>
-      </svg>
-      <span class="logo-word">Mini Arcade</span>
+<div class="shell">
+  <!-- A rail down the side on a wide screen; a slim bar on top and a tab bar under the thumb on a phone. -->
+  <header class="rail">
+    <a href="#/" class="brand" aria-label="Mini Arcade, accueil">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 20 24">
+          <rect x="1" y="1" width="18" height="22" rx="3" fill="currentColor"/>
+          <rect x="4" y="5" width="12" height="9" rx="1.5" fill="var(--bg)"/>
+          <rect x="5" y="17" width="10" height="2" rx="1" fill="var(--bg)"/>
+        </svg>
+      </span>
+      <span class="brand-word">Mini<b>Arcade</b></span>
     </a>
 
-    <!-- Inline in the header on wide screens; a bottom tab bar under the thumb on phones. -->
-    <nav class="main-nav" aria-label="Navigation principale">
+    <nav class="rail-nav" aria-label="Navigation principale">
       <a href="#/" data-route="/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 10.5 12 3.5l8.5 7V20a1 1 0 0 1-1 1H15v-6H9v6H4.5a1 1 0 0 1-1-1z"/></svg><span>Accueil</span></a>
       <a href="#/games" data-route="/games"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="2.5"/><rect x="8" y="6" width="8" height="6.5" rx="1"/><path d="M9.5 16.5h5"/></svg><span>Bornes</span></a>
       <a href="#/scores" data-route="/scores"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3.5h10v5a5 5 0 0 1-10 0z"/><path d="M7 5.5H4.5a3 3 0 0 0 3 4M17 5.5h2.5a3 3 0 0 1-3 4M12 13.5v4M8 20.5h8"/></svg><span>Scores</span></a>
@@ -69,7 +71,7 @@
       <a href="#/about" data-route="/about"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.6v.2"/></svg><span>À propos</span></a>
     </nav>
 
-    <div class="header-actions">
+    <div class="rail-foot">
       <button id="sound-toggle" class="icon-btn" type="button" aria-pressed="true" aria-label="Couper le son">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5v5h3.5l4.5 4v-13l-4.5 4z" fill="currentColor" stroke-width="1.2"/><path class="snd-on" d="M15.5 8.7a4.6 4.6 0 0 1 0 6.6M18.3 6a8.4 8.4 0 0 1 0 12"/><path class="snd-off" d="m16 9.5 5 5m0-5-5 5"/></svg>
       </button>
@@ -80,17 +82,19 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m8.5 7-5 5 5 5M15.5 7l5 5-5 5"/></svg>
       </a>
     </div>
+  </header>
+
+  <div class="content">
+    <main id="app" tabindex="-1">
+      <noscript><p class="noscript">Mini Arcade a besoin de JavaScript : les bornes tournent entièrement dans ton navigateur, sans serveur. Active-le pour jouer.</p></noscript>
+    </main>
+
+    <footer class="site-footer">
+      <p><span id="footer-count">—</span> · aucun serveur · aucun tracker · scores stockés sur ta machine</p>
+      <p class="credit">Fait par <b>SteelTV</b> · LeVraiSteelTV</p>
+    </footer>
   </div>
-</header>
-
-<main id="app" tabindex="-1">
-  <noscript><p class="noscript">Mini Arcade a besoin de JavaScript : les bornes tournent entièrement dans ton navigateur, sans serveur. Active-le pour jouer.</p></noscript>
-</main>
-
-<footer class="site-footer">
-  <p><span id="footer-count">—</span> · aucun serveur · aucun tracker · scores stockés sur ta machine</p>
-  <p class="credit">Fait par <b>SteelTV</b> · LeVraiSteelTV</p>
-</footer>
+</div>
 
 <div id="sr-status" class="sr-only" role="status" aria-live="polite"></div>
 

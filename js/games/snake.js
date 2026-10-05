@@ -5,25 +5,42 @@ const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 export function createGame(canvas, host, opts = {}) {
   // Easy wraps at the walls instead of killing you — the clearest difficulty tell.
   const D = [
-    { base: 190, dec: 6, min: 90, wrap: true },
-    { base: 150, dec: 9, min: 60, wrap: false },
-    { base: 115, dec: 11, min: 48, wrap: false },
+    { base: 190, dec: 6, min: 90, wrap: true, walls: false },
+    { base: 150, dec: 9, min: 60, wrap: false, walls: false },
+    { base: 115, dec: 11, min: 48, wrap: false, walls: true },
   ][opts.difficulty ?? 1];
 
   canvas.width = COLS * CELL;
   canvas.height = ROWS * CELL;
   const ctx = canvas.getContext('2d');
 
-  let snake, dir, turns, food, bonus, bonusT, grow, score, level, acc;
+  let snake, dir, turns, food, bonus, bonusT, grow, score, level, acc, walls;
   let paused = false, running = false, rafId = null, last = 0, over = false;
 
   const stepMs = () => Math.max(D.min, D.base - (level - 1) * D.dec);
+
+  const taken = (c, r) => snake.some((s) => s.c === c && s.r === r) || walls.some((w) => w.c === c && w.r === r);
+
+  /** Difficile only: every other level drops a three-cell wall somewhere clear. */
+  function addWall() {
+    const horiz = Math.random() < 0.5;
+    for (let tries = 0; tries < 40; tries++) {
+      const c = 2 + ((Math.random() * (COLS - 5)) | 0);
+      const r = 2 + ((Math.random() * (ROWS - 5)) | 0);
+      const cells = [0, 1, 2].map((i) => ({ c: c + (horiz ? i : 0), r: r + (horiz ? 0 : i) }));
+      // Never box in the head, and never land on the food.
+      if (cells.some((x) => taken(x.c, x.r) || (food && x.c === food.c && x.r === food.r))) continue;
+      if (cells.some((x) => Math.abs(x.c - snake[0].c) + Math.abs(x.r - snake[0].r) < 5)) continue;
+      walls.push(...cells);
+      return;
+    }
+  }
 
   function placeFood() {
     const free = [];
     for (let c = 0; c < COLS; c++) {
       for (let r = 0; r < ROWS; r++) {
-        if (!snake.some((s) => s.c === c && s.r === r)) free.push({ c, r });
+        if (!taken(c, r)) free.push({ c, r });
       }
     }
     if (!free.length) return finish(true);
@@ -55,6 +72,7 @@ export function createGame(canvas, host, opts = {}) {
     // The tail cell frees up this tick unless we're growing, so it isn't a crash.
     const body = grow > 0 ? snake : snake.slice(0, -1);
     if (body.some((s) => s.c === head.c && s.r === head.r)) return finish(false);
+    if (walls.some((w) => w.c === head.c && w.r === head.r)) return finish(false);
 
     snake.unshift(head);
     if (grow > 0) grow--; else snake.pop();
@@ -62,7 +80,9 @@ export function createGame(canvas, host, opts = {}) {
     if (head.c === food.c && head.r === food.r) {
       grow += 2;
       score += 10;
-      level = 1 + Math.floor(snake.length / 8);
+      const lv = 1 + Math.floor(snake.length / 8);
+      if (lv > level && D.walls && lv % 2 === 0) addWall();
+      level = lv;
       host.sfx.move();
       host.onStats({ score, level });
       placeFood();
@@ -82,6 +102,13 @@ export function createGame(canvas, host, opts = {}) {
     ctx.strokeStyle = 'rgba(245,242,234,0.045)';
     for (let c = 0; c <= COLS; c++) { ctx.beginPath(); ctx.moveTo(c * CELL + .5, 0); ctx.lineTo(c * CELL + .5, ROWS * CELL); ctx.stroke(); }
     for (let r = 0; r <= ROWS; r++) { ctx.beginPath(); ctx.moveTo(0, r * CELL + .5); ctx.lineTo(COLS * CELL, r * CELL + .5); ctx.stroke(); }
+
+    walls.forEach((w) => {
+      ctx.fillStyle = '#4A4458';
+      ctx.fillRect(w.c * CELL, w.r * CELL, CELL, CELL);
+      ctx.fillStyle = 'rgba(255,255,255,0.08)';
+      ctx.fillRect(w.c * CELL, w.r * CELL, CELL, 3);
+    });
 
     ctx.fillStyle = '#FF4D1F';
     ctx.fillRect(food.c * CELL + 4, food.r * CELL + 4, CELL - 8, CELL - 8);
@@ -118,7 +145,7 @@ export function createGame(canvas, host, opts = {}) {
     start() {
       snake = [{ c: 6, r: ROWS >> 1 }, { c: 5, r: ROWS >> 1 }, { c: 4, r: ROWS >> 1 }];
       dir = DIRS.right; turns = [];
-      grow = 0; score = 0; level = 1; acc = 0; bonus = null; bonusT = 0;
+      grow = 0; score = 0; level = 1; acc = 0; bonus = null; bonusT = 0; walls = [];
       paused = false; running = true; over = false; last = 0;
       placeFood();
       host.onStats({ score, level });

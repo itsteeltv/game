@@ -80,12 +80,41 @@ const kBass = ['E2', 'A2', 'G#2', 'A2', 'D2', 'C2', 'E2', 'A2'].flatMap((root) =
   return [root, up, root, up, root, up, root, up].map((n) => [n, .5]);
 });
 
+// Two loops written for this site, in the same voice-pair shape as above.
+// "Caverne": a minor arpeggio that keeps walking downhill.
+const cLead = ['A4 C5 E5 C5', 'D5 F5 A5 F5', 'G4 B4 D5 B4', 'E4 G4 B4 G4']
+  .flatMap((bar) => bar.split(' ').map((n) => [n, .5]));
+const cBass = ['A2', 'A2', 'F2', 'F2', 'G2', 'G2', 'E2', 'E2'].flatMap((n) => [[n, 1], ['R', .5], [n, .5]]);
+
+// "Course": a flat-out eighth-note pulse for the driving bornes.
+const rLead = [
+  ['E5', .5], ['G5', .5], ['B5', .5], ['G5', .5], ['A5', .5], ['G5', .5], ['E5', .5], ['D5', .5],
+  ['E5', .5], ['G5', .5], ['B5', .5], ['D6', .5], ['B5', 1], ['A5', 1],
+  ['C5', .5], ['E5', .5], ['G5', .5], ['E5', .5], ['F5', .5], ['E5', .5], ['C5', .5], ['B4', .5],
+  ['A4', 1], ['B4', .5], ['D5', .5], ['E5', 2],
+];
+const rBass = ['E2', 'E2', 'C2', 'C2', 'A2', 'A2', 'B2', 'B2'].flatMap((n) => [[n, .5], [n, .5], [n, .5], ['R', .5]]);
+
 export const SONGS = {
   korobeiniki: {
     bpm: 144,
     voices: [
       { notes: kLead, type: 'square', gain: 0.07, len: 0.85 },
       { notes: kBass, type: 'triangle', gain: 0.12, len: 0.7 },
+    ],
+  },
+  caverne: {
+    bpm: 100,
+    voices: [
+      { notes: cLead, type: 'triangle', gain: 0.06, len: 0.9 },
+      { notes: cBass, type: 'square', gain: 0.07, len: 0.6 },
+    ],
+  },
+  course: {
+    bpm: 164,
+    voices: [
+      { notes: rLead, type: 'square', gain: 0.055, len: 0.8 },
+      { notes: rBass, type: 'triangle', gain: 0.1, len: 0.55 },
     ],
   },
 };

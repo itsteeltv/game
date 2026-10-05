@@ -43,12 +43,18 @@ function write(key, value) {
   }
 }
 
+// Valid JSON of the wrong shape is as dangerous as broken JSON: a score table
+// saved as an object used to throw on .filter and leave the page blank. Every
+// read goes through the shape it expects, so a tampered key degrades to empty.
+const readArray = (key) => { const v = read(key, null); return Array.isArray(v) ? v : null; };
+const readObject = (key) => { const v = read(key, null); return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; };
+
 export function getSettings() {
   return {
     ...DEFAULT_SETTINGS,
     theme: media('(prefers-color-scheme: light)') ? 'light' : 'dark',
     crt: !media('(pointer: coarse)'),   // scanlines and a curved-glass vignette over the game screen
-    ...read(KEYS.settings, {}),
+    ...readObject(KEYS.settings),
   };
 }
 
@@ -64,13 +70,13 @@ export function getLastGame() { return read(KEYS.lastGame, null); }
 /* --- Difficulty ---------------------------------------------------------- */
 
 export function getDifficulty(gameId) {
-  const all = read(KEYS.diff, {});
+  const all = readObject(KEYS.diff);
   const d = Number(all[gameId]);
   return Number.isInteger(d) && d >= 0 && d < LEVELS.length ? d : 1;
 }
 
 export function setDifficulty(gameId, d) {
-  const all = read(KEYS.diff, {});
+  const all = readObject(KEYS.diff);
   all[gameId] = d;
   write(KEYS.diff, all);
   return d;
@@ -79,7 +85,7 @@ export function setDifficulty(gameId, d) {
 /* --- Played ------------------------------------------------------------- */
 
 export function markPlayed(gameId) {
-  const list = read(KEYS.played, []);
+  const list = readArray(KEYS.played) || [];
   if (!list.includes(gameId)) {
     list.push(gameId);
     write(KEYS.played, list);
@@ -87,7 +93,7 @@ export function markPlayed(gameId) {
 }
 
 export function hasPlayed(gameId) {
-  return read(KEYS.played, []).includes(gameId);
+  return (readArray(KEYS.played) || []).includes(gameId);
 }
 
 /* --- Scores -------------------------------------------------------------- */
@@ -129,11 +135,11 @@ export function renameScore(gameId, diff, date, name) {
 
 export function getHighScores(gameId, diff = 1) {
   const key = KEYS.scores(gameId, diff);
-  let rows = read(key, null);
+  let rows = readArray(key);
 
   // One-time migration: scores saved before difficulties existed land on Normal.
   if (rows === null) {
-    const old = read(KEYS.legacy(gameId), null);
+    const old = readArray(KEYS.legacy(gameId));
     if (old && diff === 1) {
       write(key, old);
       try { localStorage.removeItem(KEYS.legacy(gameId)); } catch { /* ignore */ }
@@ -141,7 +147,7 @@ export function getHighScores(gameId, diff = 1) {
     }
   }
   // Drop rows whose score isn't numeric, so one bad entry can't unsort a table.
-  return (rows || []).filter((s) => Number.isFinite(Number(s.score)));
+  return (rows || []).filter((s) => s && typeof s === 'object' && Number.isFinite(Number(s.score)));
 }
 
 export function getBestScore(gameId, diff = 1) {
@@ -167,10 +173,26 @@ export function getAnyBest(gameId) {
 }
 
 export function resetAllData() {
-  const toRemove = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const k = localStorage.key(i);
-    if (k && k.startsWith('arcade:')) toRemove.push(k);
-  }
-  toRemove.forEach((k) => localStorage.removeItem(k));
+  try {
+    const toRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('arcade:')) toRemove.push(k);
+    }
+    toRemove.forEach((k) => localStorage.removeItem(k));
+  } catch { /* nothing stored to clear */ }
+}
+
+/** What "Effacer" is about to delete, so the warning can be specific. */
+export function dataSummary() {
+  let tables = 0, rows = 0;
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k?.startsWith('arcade:scores:')) continue;
+      const list = readArray(k);
+      if (list?.length) { tables++; rows += list.length; }
+    }
+  } catch { /* nothing stored */ }
+  return { tables, rows, played: (readArray(KEYS.played) || []).length };
 }

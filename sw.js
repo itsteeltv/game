@@ -1,68 +1,47 @@
-// Offline play. Everything the site needs is cached on install; after that the
-// network is tried first so a new version lands at once, and the cache answers
-// when there is no network. Adding a game? Add its module and image below.
-// Freedoom's 28 MB WAD is left out of the install on purpose: it is cached the
-// first time someone plays it, so only players who want it pay for it.
-const CACHE = 'mini-arcade-v3';
-const FILES = [
+// Offline play. The shell is cached on install, together with every game module
+// and cover read straight from the catalogue — so adding a borne can no longer
+// forget to update this file. After install the network is tried first, and the
+// cache answers when there is none.
+// Freedoom's 28 MB WAD is left out on purpose: it lands in the cache the first
+// time someone plays that borne, so only players who want it pay for it.
+const CACHE = 'mini-arcade-v7';
+
+const SHELL = [
   './',
   'index.html',
   'manifest.webmanifest',
   'css/style.css',
-  'img/games/2048.png',
-  'img/games/asteroids.png',
-  'img/games/breakout.png',
-  'img/games/centipede.png',
-  'img/games/connect4.png',
-  'img/games/doom.png',
-  'img/games/flappy.png',
-  'img/games/frogger.png',
-  'img/games/galaxian.png',
-  'img/games/invaders.png',
-  'img/games/lander.png',
-  'img/games/lightcycles.png',
-  'img/games/memory.png',
-  'img/games/minesweeper.png',
-  'img/games/missile.png',
-  'img/games/pacman.png',
-  'img/games/pong.png',
-  'img/games/simon.png',
-  'img/games/snake.png',
-  'img/games/tetris.png',
+  'js/app.js',
+  'js/audio.js',
+  'js/catalog.js',
+  'js/storage.js',
+  'img/og.png',
   'img/icons/apple-touch-icon.png',
   'img/icons/icon-192.png',
   'img/icons/icon-512.png',
   'img/icons/maskable-512.png',
-  'js/app.js',
-  'js/audio.js',
-  'js/catalog.js',
-  'js/games/2048.js',
-  'js/games/asteroids.js',
-  'js/games/breakout.js',
-  'js/games/centipede.js',
-  'js/games/connect4.js',
-  'js/games/doom.js',
-  'js/games/doom/engine.js',
-  'js/games/doom/engine.wasm',
-  'js/games/flappy.js',
-  'js/games/frogger.js',
-  'js/games/galaxian.js',
-  'js/games/invaders.js',
-  'js/games/lander.js',
-  'js/games/lightcycles.js',
-  'js/games/memory.js',
-  'js/games/minesweeper.js',
-  'js/games/missile.js',
-  'js/games/pacman.js',
-  'js/games/pong.js',
-  'js/games/simon.js',
-  'js/games/snake.js',
-  'js/games/tetris.js',
-  'js/storage.js',
 ];
 
+/** One module and one cover per borne, taken from the catalogue itself. */
+async function gameFiles() {
+  try {
+    const src = await (await fetch('js/catalog.js', { cache: 'reload' })).text();
+    const ids = [...src.matchAll(/^\s+id: '([^']+)'/gm)].map((m) => m[1]);
+    return ids.flatMap((id) => [`js/games/${id}.js`, `img/games/${id}.png`]);
+  } catch {
+    return [];   // offline on the very first visit: the runtime cache will fill in
+  }
+}
+
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting()));
+  e.waitUntil((async () => {
+    const cache = await caches.open(CACHE);
+    const files = [...SHELL, ...await gameFiles()];
+    // One file per request, not addAll: a missing cover must cost its own borne's
+    // picture, never the whole offline install.
+    await Promise.allSettled(files.map((f) => cache.add(new Request(f, { cache: 'reload' }))));
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener('activate', (e) => {

@@ -5,11 +5,14 @@ export function createGame(canvas, host = {}, opts = {}) {
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
 
-  // Difficulty moves the AI's reach, the serve speed and the target score.
+  // Difficulty moves the AI's reach, how far off it aims, the serve speed and the target score.
+  // `err` is in PIXELS, and that is the whole game: the AI plays where the ball will be, off by
+  // up to `err`. It only misses when that beats half its own paddle (+ the ball) — roughly half
+  // the rallies on Facile, a fifth on Difficile.
   const D = [
-    { ai: 2.6, slack: 20, speed: 3.6, win: 5, ph: 78 },
-    { ai: 3.0, slack: 12, speed: 4.2, win: 7, ph: 64 },
-    { ai: 3.7, slack: 6, speed: 5.0, win: 11, ph: 52 },
+    { ai: 4.4, slack: 6, err: 86, speed: 3.6, win: 5, ph: 78 },
+    { ai: 5.2, slack: 5, err: 56, speed: 4.2, win: 7, ph: 64 },
+    { ai: 6.4, slack: 4, err: 38, speed: 5.0, win: 11, ph: 52 },
   ][opts.difficulty ?? 1];
 
   const PW = 10, PH = D.ph, R = 5, WIN = D.win;
@@ -25,7 +28,7 @@ export function createGame(canvas, host = {}, opts = {}) {
   const ball = { x: W / 2, y: H / 2, vx: SPEED0, vy: 1.6 };
   const keys = { up: false, down: false };
 
-  let pScore = 0, aScore = 0, rally = 0, serveWait = 0;
+  let pScore = 0, aScore = 0, rally = 0, serveWait = 0, aiErr = 0;
   let paused = false, running = false, rafId = null, last = 0, acc = 0;
 
   // The three tones of the 1972 cabinet: paddle, wall, point.
@@ -39,8 +42,12 @@ export function createGame(canvas, host = {}, opts = {}) {
     ball.vx = SPEED0 * dir;
     ball.vy = (Math.random() * 2 - 1) * 2;
     rally = 0;
+    aimErr();
     serveWait = autoplay ? 30 : 45;   // a beat before the ball leaves centre
   }
+
+  /** A fresh aiming error per rally: jitter per frame would just look like a tremor. */
+  function aimErr() { aiErr = (Math.random() * 2 - 1) * D.err; }
 
   const label = () => `${pScore} — ${aScore}`;
   const report = () => { if (!autoplay) host.onStats?.({ score: label(), level: Math.min(9, 1 + Math.floor(rally / 4)) }); };
@@ -54,6 +61,7 @@ export function createGame(canvas, host = {}, opts = {}) {
     ball.vy = clamp(Math.sin(angle) * speed, -VY_MAX, VY_MAX);
     ball.vx = clamp(ball.vx, -VX_MAX, VX_MAX);
     rally++;
+    aimErr();
     beep('hit');
   }
 
@@ -62,6 +70,31 @@ export function createGame(canvas, host = {}, opts = {}) {
     if (c < ball.y - slack) paddle.y += speed;
     else if (c > ball.y + slack) paddle.y -= speed;
     paddle.y = clamp(paddle.y, 0, H - PH);
+  }
+
+  /** Where the ball will cross `x`, wall bounces folded in. */
+  function predictY(x) {
+    if (ball.vx === 0) return H / 2;
+    const t = (x - ball.x) / ball.vx;
+    if (t <= 0) return H / 2;                       // coming back at the player: recentre
+    const span = 2 * (H - 2 * R);
+    let y = ball.y - R + ball.vy * t;
+    y = ((y % span) + span) % span;                 // fold into twice the height…
+    return R + (y > span / 2 ? span - y : y);       // …then mirror it: that is the bounce
+  }
+
+  /** Chasing the ball's current y loses to any steep shot — the paddle cannot cross
+      the screen in the time the ball takes. So it plays where the ball WILL be,
+      off by `aiErr`, and still only moves at its own speed. */
+  function aiPlay() {
+    const target = ball.vx < 0 ? predictY(PW + R) + aiErr : H / 2 + aiErr * 0.3;
+    const c = ai.y + PH / 2;
+    const d = target - c;
+    if (Math.abs(d) > D.slack) {
+      const speed = D.ai + Math.max(0, pScore - aScore) * 0.3;   // a lead still has to be defended
+      ai.y += Math.sign(d) * Math.min(speed, Math.abs(d));
+    }
+    ai.y = clamp(ai.y, 0, H - PH);
   }
 
   function update() {
@@ -73,8 +106,7 @@ export function createGame(canvas, host = {}, opts = {}) {
       if (keys.up) player.y -= 6.5;
       if (keys.down) player.y += 6.5;
       player.y = clamp(player.y, 0, H - PH);
-      // The AI sharpens as the player pulls ahead, so a lead still has to be defended.
-      aiTrack(ai, D.ai + Math.max(0, pScore - aScore) * 0.22, D.slack);
+      aiPlay();
     }
 
     if (serveWait > 0) { serveWait--; return; }
@@ -94,12 +126,15 @@ export function createGame(canvas, host = {}, opts = {}) {
       ball.x = W - PW - R; bounce(player, -1);
     }
 
+    // The AI holds the left paddle, you hold the right one: a ball leaving the LEFT
+    // edge got past the AI, so it is YOUR point. (These two were the wrong way round,
+    // which handed a 7-0 win to anyone who never touched a key.)
     if (ball.x < -R) {
-      aScore++; beep('score'); report(); serve(1);
-      if (aScore >= WIN) return autoplay ? (aScore = pScore = 0) : end(false);
-    } else if (ball.x > W + R) {
-      pScore++; beep('score'); report(); serve(-1);
+      pScore++; beep('score'); report(); serve(1);
       if (pScore >= WIN) return autoplay ? (aScore = pScore = 0) : end(true);
+    } else if (ball.x > W + R) {
+      aScore++; beep('score'); report(); serve(-1);
+      if (aScore >= WIN) return autoplay ? (aScore = pScore = 0) : end(false);
     }
   }
 
