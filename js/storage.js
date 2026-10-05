@@ -26,7 +26,7 @@ export const LEVELS = [
 
 export const levelName = (d) => LEVELS[d]?.name ?? 'Normal';
 
-function read(key, fallback) {
+export function read(key, fallback) {
   try {
     const raw = localStorage.getItem(key);
     return raw ? JSON.parse(raw) : fallback;
@@ -35,7 +35,7 @@ function read(key, fallback) {
   }
 }
 
-function write(key, value) {
+export function write(key, value) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch {

@@ -17,6 +17,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // How to stage a game before the photo: milliseconds to let it play, and optional input to give it first.
 // keys: [key, ms held]; taps: [x, y as fractions of the canvas] — each followed by a short pause.
 // best: take that many frames over `wait` ms and keep the busiest one (a game whose action comes and goes).
+/** n appuis secs sur la même touche : un pas de grille par appui, quelle que soit la cadence. */
+const rep = (k, n, hold = 180) => Array.from({ length: n }, () => [k, hold]);
+
 const DEMO = {
   lights: { wait: 500 },
   slide: { wait: 700 },
@@ -34,13 +37,19 @@ const DEMO = {
   motus: { wait: 700, keys: [['a', 60], ['r', 60], ['b', 60]] },
   defense: { wait: 5200, best: 22, taps: [[0.125, 0.45], [0.21, 0.65], [0.375, 0.35], [0.70, 0.28], [0.70, 0.75]] },
   caverne: { wait: 900, keys: [['ArrowRight', 700], [' ', 120], ['ArrowRight', 400]] },
-  flipper: { wait: 2000, best: 18, keys: [[' ', 80], [' ', 80], ['ArrowLeft', 140], ['ArrowRight', 140]] },
+  flipper: { wait: 2600, best: 22, keys: [[' ', 520], ['ArrowLeft', 160], ['ArrowRight', 160], ['ArrowLeft', 160]] },
   rally: { wait: 2600, best: 20, keys: [['ArrowRight', 260], ['ArrowLeft', 300]] },
   plateformes: { wait: 1600, best: 14, keys: [['ArrowRight', 420], [' ', 120], ['ArrowRight', 300]] },
   bombes: { wait: 2000, best: 16, keys: [['ArrowRight', 300], [' ', 60], ['ArrowLeft', 200], ['ArrowDown', 400], ['ArrowRight', 500]] },
   pyramide: { wait: 1200, best: 10, keys: [['ArrowDown', 60], ['ArrowLeft', 60], ['ArrowDown', 60], ['ArrowRight', 60], ['ArrowLeft', 60]] },
   tuyaux: { wait: 900, best: 8, taps: [[0.2, 0.3], [0.32, 0.3], [0.44, 0.3], [0.44, 0.55], [0.56, 0.55], [0.68, 0.55], [0.68, 0.3], [0.8, 0.3]] },
   eboulis: { wait: 900, best: 8, keys: [['ArrowRight', 1600], ['ArrowDown', 900], ['ArrowRight', 900]] },
+  colonnes: { wait: 2600, best: 16, keys: [['ArrowLeft', 300], ['ArrowDown', 900], ['ArrowRight', 400], ['ArrowDown', 900]] },
+  // Ces trois-là avancent case par case : une page en arrière-plan ne reçoit qu'une poignée
+  // de rAF par seconde, donc une touche tenue longtemps ne vaut qu'un pas. On répète l'appui.
+  foreuse: { wait: 420, keys: [...rep('ArrowDown', 5), ...rep('ArrowLeft', 4), ...rep('ArrowDown', 2), ...rep('ArrowRight', 2), [' ', 90]] },
+  echelles: { wait: 600, keys: [...rep('ArrowLeft', 8), ...rep('ArrowUp', 6), ...rep('ArrowRight', 3)] },
+  qix: { wait: 500, keys: [...rep('ArrowUp', 11), ...rep('ArrowLeft', 9), ...rep('ArrowDown', 13), ...rep('ArrowLeft', 4), ...rep('ArrowUp', 5)] },
 };
 
 const MIME = {

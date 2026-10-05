@@ -33,6 +33,11 @@ labyrinthe et sons sont dessinés ou synthétisés pour ce site.
 | **Bombes** | 1983 | Nouvelle. Labyrinthe de piliers, briques destructibles, sortie et bonus cachés dessous, explosions en chaîne qui ne t'épargnent pas |
 | **Éboulis** | 1984 | Nouvelle. Grotte à creuser, rochers qui tombent et roulent sur les dos ronds, quota de diamants et chrono avant la sortie |
 | **Tuyaux** | 1989 | Nouvelle. File de pièces imposée, compte à rebours avant le lâcher d'eau, croix réutilisable une fois, fuite = essai perdu |
+| **Flipper Cadet de l'Espace** | 1995 | Dans l'esprit du flipper 3D livré avec Windows : neuf grades de Cadet à Amiral de la flotte, missions à trois objectifs allumés, jauge de carburant qui se vide pendant la mission, cinq cibles CARBURANT, trois couloirs de rentrée, trou d'hyperespace qui renvoie au lanceur, multibille à chaque promotion, lanceur à ressort qu'on charge — et le tilt si tu secoues trois fois de trop |
+| **Colonnes** | 1990 | Nouvelle. Colonne de trois gemmes dont tu permutes les couleurs en vol, alignements en diagonale compris, chaînes qui paient double |
+| **Foreuse** | 1982 | Nouvelle. Quatre strates, galeries creusées à la demande, harpon qui gonfle les bestioles en quatre appuis, rochers qui écrasent (×5) et bestioles qui traversent la terre |
+| **Échelles** | 1983 | Nouvelle. Or à ramasser, gardiens qui chassent, briques à creuser en diagonale qui se rebouchent toutes seules, cordes, échelle de fuite une fois l'or pris ; deux plans dessinés à la main, joués aussi en miroir |
+| **Qix** | 1981 | Nouvelle. Tracé de lignes depuis le bord, remplissage de la zone que le Qix ne peut plus atteindre, tracé lent qui vaut le double, mèche qui remonte ta ligne si tu t'arrêtes |
 
 ### Les bornes maison
 
@@ -54,7 +59,6 @@ Celles-là ne copient rien : règles, niveaux et dessins sont écrits pour ce si
 | **Le Mot** | Réflexion | Trois mots français de cinq lettres par partie, clavier AZERTY à l'écran, première lettre donnée |
 | **Défense** | Réflexion | Tower defense : une route fixe, deux tours (dégâts, ralentissement) sur trois niveaux, jusqu'à 14 vagues |
 | **Caverne** | Arcade | Plateforme : cinq salles, saut à hauteur variable, plateforme mobile, pics et lave, chrono par salle |
-| **Flipper** | Action | Vraie table : bumpers, lance-bille, flips que tu dois synchroniser, cinq cibles tombantes qui montent le multiplicateur jusqu'à ×5 |
 | **Rallye** | Réflexe | Quatre voies, trafic qui se densifie, réservoir qui descend, bidons à ramasser, braquage continu (pas de voie à voie) |
 | **Plateformes** | Arcade | Six tableaux d'un écran, saut coupé si tu lâches la touche, *coyote time*, marcheurs à écraser, pièces et drapeau |
 
@@ -88,10 +92,31 @@ Chaque borne tient sa couleur d'encre (`--ink`) et s'en sert partout.
 
 ## Le catalogue
 
-Recherche (insensible à la casse et aux accents), filtre par genre, filtre « jamais jouées »,
-cinq tris, nombre de résultats, rappel des filtres actifs et bouton **Tout effacer** —
-les quatre marchent ensemble. Les cartes montrent le titre, l'écran, le genre et soit ton
-record, soit la difficulté en points ; une pastille marque les bornes déjà jouées.
+Recherche (insensible à la casse et aux accents), filtre par genre, filtre **★ Favoris**,
+filtre « jamais jouées », filtre par **commandes** (une seule touche, souris ou doigt,
+gauche/droite, quatre directions — déduit du `touch` déclaré par chaque borne, pas d'un
+second champ à tenir à jour), cinq tris, nombre de résultats, rappel des filtres actifs et
+bouton **Tout effacer** — tout marche ensemble. Les cartes montrent le titre, l'écran, le
+genre et soit ton record, soit la difficulté en points ; une pastille marque les bornes déjà
+jouées, et l'étoile en haut à droite met la borne en favori (elle remonte alors sur l'accueil).
+
+## Profil, XP et défis
+
+`js/progress.js` tient toute la progression dans une seule clé `arcade:prog`, à côté des
+scores — aucun compte, aucun serveur.
+
+- **XP et niveaux** : une partie rapporte `10 + √score + 25 si gagnée + 5 × difficulté`.
+  Chaque niveau coûte 150 XP de plus que le précédent, et chaque badge en vaut 100.
+- **17 badges** : premières parties, bornes essayées, victoires, victoire en difficile,
+  gros score, série de jours, défis remplis, partie nocturne…
+- **Deux défis par jour**, tirés d'un hachage de la date (donc identiques pour tout le monde,
+  sans rien stocker ailleurs) : une borne au sort avec un objectif de points figé à la première
+  consultation de la journée, et « trois bornes différentes aujourd'hui ». Remise à zéro à
+  minuit, heure de la machine.
+- **Historique** des 60 dernières parties, **statistiques par borne** (parties, victoires,
+  meilleur score) et **série de jours consécutifs**, sur la page `#/profil`.
+- Les gains d'une partie (XP, niveau pris, badges, défis) s'affichent sur l'écran de fin et
+  sont annoncés aux lecteurs d'écran.
 
 ## Freedoom / Doom
 
@@ -237,7 +262,9 @@ Le jeu est chargé en lazy-loading (`import()`) uniquement quand le joueur cliqu
 
 ## Sauvegarde locale
 
-Tout est stocké dans `localStorage` sous le préfixe `arcade:` (scores, thème, volume, dernier jeu joué). Aucune donnée ne quitte le navigateur. « Effacer les données locales » dans les Réglages efface ce préfixe.
+Tout est stocké dans `localStorage` sous le préfixe `arcade:` (scores, thème, volume, dernier
+jeu joué, et la progression : XP, badges, favoris, historique, défis du jour). Aucune donnée
+ne quitte le navigateur. « Effacer les données locales » dans les Réglages efface ce préfixe.
 
 ## Accessibilité
 

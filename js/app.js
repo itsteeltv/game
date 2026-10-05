@@ -5,6 +5,10 @@ import {
   resetAllData, setLastGame, LEVELS, levelName, renameScore, dataSummary,
 } from './storage.js';
 import { sfx, beep, SONGS, playMusic, stopMusic, setMusicRate } from './audio.js';
+import {
+  getProfile, getProg, addRun, getDaily, getFavs, isFav, toggleFav,
+  getHistory, gameStats, BADGES, levelOf, DAILY_XP,
+} from './progress.js';
 
 const app = document.getElementById('app');
 const themeBtn = document.getElementById('theme-toggle');
@@ -12,9 +16,66 @@ const soundBtn = document.getElementById('sound-toggle');
 const srStatus = document.getElementById('sr-status');
 const metaTheme = document.querySelector('meta[name="theme-color"]');
 const DEFAULT_TITLE = document.title;
+const metaDesc = document.querySelector('meta[name="description"]');
+const canonical = document.querySelector('link[rel="canonical"]');
+const DEFAULT_DESC = metaDesc?.content || '';
+const BASE_URL = canonical?.getAttribute('href') || `${location.href.split('#')[0]}`;
+const META = {
+  ogTitle: document.querySelector('meta[property="og:title"]'),
+  ogDesc: document.querySelector('meta[property="og:description"]'),
+  ogUrl: document.querySelector('meta[property="og:url"]'),
+  twTitle: document.querySelector('meta[name="twitter:title"]'),
+  twDesc: document.querySelector('meta[name="twitter:description"]'),
+};
 
-/** One title per page: tabs, history and screen readers all read it. */
-const setTitle = (t) => { document.title = t ? `${t} — Mini Arcade` : DEFAULT_TITLE; };
+/**
+ * One title, one description and one canonical URL per page: that is what a tab, a
+ * screen reader, a crawler and a pasted link all read.
+ * ponytail: the routing is hash-based, so every borne still shares one indexable
+ * document. Real per-borne pages would mean one static HTML file per borne (and a
+ * build step to emit them) — worth it only if search traffic ever matters here.
+ */
+function setPage(title, desc = DEFAULT_DESC, path = location.hash) {
+  const full = title ? `${title} — Mini Arcade` : DEFAULT_TITLE;
+  document.title = full;
+  metaDesc?.setAttribute('content', desc);
+  // La query appartient à l'état de la page (le filtre favoris), pas à son adresse
+  // canonique : deux URLs pour le même contenu, c'est exactement ce qu'un canonical évite.
+  const clean = (path || '').split('?')[0];
+  const url = BASE_URL + (clean && clean !== '#/' ? clean : '');
+  canonical?.setAttribute('href', url);
+  META.ogUrl?.setAttribute('content', url);
+  META.ogTitle?.setAttribute('content', full);
+  META.twTitle?.setAttribute('content', full);
+  META.ogDesc?.setAttribute('content', desc);
+  META.twDesc?.setAttribute('content', desc);
+}
+
+/** A borne's own structured data, so a shared link describes the game, not the site. */
+function setGameLd(game) {
+  document.getElementById('game-ld')?.remove();
+  if (!game) return;
+  const el = document.createElement('script');
+  el.type = 'application/ld+json';
+  el.id = 'game-ld';
+  el.textContent = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'VideoGame',
+    name: game.name,
+    description: game.description,
+    genre: game.category,
+    url: `${BASE_URL}#/game/${game.id}`,
+    image: `${BASE_URL}img/games/${game.id}.png`,
+    playMode: 'SinglePlayer',
+    gamePlatform: 'Web browser',
+    applicationCategory: 'Game',
+    operatingSystem: 'Any',
+    inLanguage: 'fr',
+    isAccessibleForFree: true,
+    author: { '@type': 'Organization', name: 'SteelTV', alternateName: 'LeVraiSteelTV' },
+  });
+  document.head.appendChild(el);
+}
 
 /** Polite live announcement. The zero-width toggle makes an identical message read again. */
 let srFlip = false;
@@ -58,7 +119,7 @@ function teardown() {
 }
 
 function activeRoute() {
-  const first = (location.hash.slice(1) || '/').split('/').filter(Boolean)[0];
+  const first = (location.hash.slice(1) || '/').split('/').filter(Boolean)[0]?.split('?')[0];
   return first ? `/${first}` : '/';
 }
 
@@ -113,25 +174,49 @@ const CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="var(--on-ink)" strok
 const cardLabel = (g, best, played) => `Jouer à ${g.name}${g.new ? ' (nouveau)' : ''} — ${g.category}, ${
   best === null ? `difficulté ${g.difficulty} sur 5` : `ton record ${fmtScore(best)}`}${played ? ', déjà jouée' : ''}`;
 
-/** One cabinet: marquee strip, screen, then the base with name and best score. */
+const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2l2.7 5.6 6.1.8-4.5 4.2 1.1 6-5.4-3-5.4 3 1.1-6L3.2 9.6l6.1-.8z"/></svg>';
+
+/** One cabinet: marquee strip, screen, then the base with name and best score.
+    The favourite toggle is a sibling of the link, never nested inside it. */
 function gameCard(g, eager = false) {
   const d = getDifficulty(g.id);
   const best = getBestLabel(g.id, d);
   const played = hasPlayed(g.id);
+  const fav = isFav(g.id);
   return `
-    <a class="card" href="#/game/${g.id}" style="--ink: ${g.ink}" aria-label="${esc(cardLabel(g, best, played))}">
-      <span class="card-art">
-        ${cardArt(g, eager)}
-        <span class="card-cat" aria-hidden="true">${esc(g.category)}</span>
-        ${g.new ? '<span class="tag" aria-hidden="true">Nouveau</span>' : ''}
-        ${played ? `<span class="tag tag-played" aria-hidden="true">${CHECK}</span>` : ''}
-      </span>
-      <span class="card-body">
-        <span class="card-title">${esc(g.name)}</span>
-        <span class="card-meta">${
-          best === null ? dots(g.difficulty) : `<span class="best">${esc(fmtScore(best))}</span>`}</span>
-      </span>
-    </a>`;
+    <div class="tile" style="--ink: ${g.ink}">
+      <a class="card" href="#/game/${g.id}" aria-label="${esc(cardLabel(g, best, played))}">
+        <span class="card-art">
+          ${cardArt(g, eager)}
+          <span class="card-cat" aria-hidden="true">${esc(g.category)}</span>
+          ${g.new ? '<span class="tag" aria-hidden="true">Nouveau</span>' : ''}
+          ${played ? `<span class="tag tag-played" aria-hidden="true">${CHECK}</span>` : ''}
+        </span>
+        <span class="card-body">
+          <span class="card-title">${esc(g.name)}</span>
+          <span class="card-meta">${
+            best === null ? dots(g.difficulty) : `<span class="best">${esc(fmtScore(best))}</span>`}</span>
+        </span>
+      </a>
+      <button class="fav-btn${fav ? ' on' : ''}" type="button" data-fav="${g.id}"
+              aria-pressed="${fav}" aria-label="${esc(`${fav ? 'Retirer' : 'Ajouter'} ${g.name} de tes favoris`)}">${STAR}</button>
+    </div>`;
+}
+
+/** Wires every favourite toggle rendered under `root`, wherever the cards live. */
+function bindFavs(root, after = null) {
+  root.querySelectorAll('[data-fav]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const g = getGame(btn.dataset.fav);
+      const on = toggleFav(btn.dataset.fav);
+      btn.classList.toggle('on', on);
+      btn.setAttribute('aria-pressed', String(on));
+      btn.setAttribute('aria-label', `${on ? 'Retirer' : 'Ajouter'} ${g.name} de tes favoris`);
+      sfx.score();
+      announce(`${g.name} ${on ? 'ajoutée à' : 'retirée de'} tes favoris`);
+      after?.();
+    });
+  });
 }
 
 /** Segmented 3-way difficulty picker. `name` scopes the radio group. */
@@ -176,9 +261,50 @@ function shelf(title, list, href = '#/games', more = 'Tout voir →') {
     </section>`;
 }
 
+/** The two daily goals, as a card you can act on: one borne, one variety run. */
+function dailyCard() {
+  const d = getDaily();
+  const g = d.game;
+  const line = (done, label, xp) => `
+    <li class="${done ? 'done' : ''}">
+      <span class="quest-mark" aria-hidden="true">${done ? '✓' : '○'}</span>
+      <span class="quest-label">${label}</span>
+      <span class="quest-xp">${done ? 'fait' : `+${xp} XP`}</span>
+    </li>`;
+  return `
+    <div class="quest" style="--ink: ${g.ink}">
+      <div class="quest-head">
+        <span class="eyebrow">Défis du jour · remis à zéro à minuit</span>
+        <a class="btn btn-sm btn-primary" href="#/game/${g.id}">Jouer ${esc(g.name)}</a>
+      </div>
+      <ul class="quest-list">
+        ${line(d.borneDone, esc(d.label), DAILY_XP.borne)}
+        ${line(d.varietyDone, `Joue trois bornes différentes aujourd’hui <b>(${d.variety}/3)</b>`, DAILY_XP.variety)}
+      </ul>
+    </div>`;
+}
+
+/** The XP bar: level, title, and how far the next level is. */
+function xpBar(p = getProfile(), compact = false) {
+  return `
+    <div class="xp${compact ? ' xp-compact' : ''}">
+      <div class="xp-head">
+        <span class="xp-level">Niveau ${p.level}</span>
+        <span class="xp-title">${esc(p.title)}</span>
+        <span class="xp-num">${fmtScore(p.into)} / ${fmtScore(p.need)} XP</span>
+      </div>
+      <div class="xp-track" role="progressbar" aria-valuemin="0" aria-valuemax="100"
+           aria-valuenow="${p.pct}" aria-label="Progression vers le niveau ${p.level + 1}">
+        <i style="width:${p.pct}%"></i>
+      </div>
+    </div>`;
+}
+
 function renderHome() {
-  setTitle(null);
+  setPage(null);
   const last = getGame(getLastGame());
+  const prof = getProfile();
+  const favs = getFavs().map(getGame).filter(Boolean);
   const played = GAMES.filter((g) => hasPlayed(g.id));
   const fresh = GAMES.filter((g) => g.new);
   const ranked = GAMES.filter((g) => getAnyBest(g.id) !== null);
@@ -195,7 +321,7 @@ function renderHome() {
         <span class="eyebrow">${bornes()} · rien à installer</span>
         <h1 class="page-title">La salle d’arcade <em>tient dans ton onglet</em></h1>
         <p class="lede">
-          De Pong (1972) à Doom (1993) : Bombes, Pyramide, Éboulis, Tuyaux, Flipper,
+          De Pong (1972) à Doom (1993) : Qix, Foreuse, Échelles, Colonnes, Flipper,
           Le Mot… Tu choisis, ça se charge en une seconde, tu joues. Au clavier sur
           ordinateur, aux commandes à l’écran sur téléphone.
         </p>
@@ -213,11 +339,20 @@ function renderHome() {
     <dl class="stat-row">
       <div class="stat"><dt>Bornes</dt><dd>${COUNT}</dd></div>
       <div class="stat"><dt>Essayées</dt><dd>${played.length} <span class="data">/ ${COUNT}</span></dd></div>
+      <div class="stat"><dt>Niveau</dt><dd>${prof.level} <span class="data">${fmtScore(prof.xp)} XP</span></dd></div>
       <div class="stat"><dt>Cumul des records</dt><dd>${fmtScore(total)}</dd></div>
-      <div class="stat"><dt>Classées</dt><dd>${ranked.length}</dd></div>
     </dl>
 
     <section class="section" style="margin-top:0">
+      <div class="section-head">
+        <h2 class="section-title">Ton profil</h2>
+        <a class="link-more" href="#/profil">Profil complet →</a>
+      </div>
+      ${xpBar(prof)}
+      ${dailyCard()}
+    </section>
+
+    <section class="section">
       <div class="section-head">
         <h2 class="section-title">${last ? 'Là où tu t’es arrêté' : 'La borne du jour'}</h2>
         <a class="link-more" href="#/scores">Tes scores →</a>
@@ -225,6 +360,7 @@ function renderHome() {
       ${resumeCard(last)}
     </section>
 
+    ${shelf('Tes favoris', favs, '#/games?fav', 'Gérer →')}
     ${shelf('Nouvelles bornes', fresh)}
     ${shelf(played.length ? 'Tes bornes' : 'Pour commencer', picks, '#/games', `Les ${bornes()} →`)}
     ${cats.map((c) => shelf(c, GAMES.filter((g) => g.category === c))).join('')}
@@ -239,6 +375,7 @@ function renderHome() {
     </section>
   `);
 
+  bindFavs(app);
   startAttract();
 }
 
@@ -290,13 +427,25 @@ const SORTS = {
   hard: { label: 'Les plus corsées', fn: (a, b) => b.difficulty - a.difficulty },
 };
 
+// How a borne is played, read off the touch spec it already declares: no second
+// source of truth to keep in step with the catalogue.
+const CONTROLS = {
+  all:  { label: 'Toutes les commandes', fn: null },
+  one:  { label: 'Une seule touche', fn: (g) => !g.touch?.pad && (g.touch?.actions?.length ?? 0) === 1 },
+  point: { label: 'Souris ou doigt seul', fn: (g) => !g.touch?.pad && !g.touch?.actions?.length },
+  lr:   { label: 'Gauche / droite', fn: (g) => g.touch?.pad === 'lr' || g.touch?.pad === 'ud' },
+  dpad: { label: 'Quatre directions', fn: (g) => g.touch?.pad === 'dpad' },
+};
+
 function renderGames() {
-  setTitle('Les bornes');
+  setPage('Les bornes', `Les ${COUNT} bornes de Mini Arcade : arcade, puzzle, action, réflexe et réflexion, jouables tout de suite dans le navigateur.`);
   const cats = ['Tous', ...new Set(GAMES.map((g) => g.category))];
   const countOf = (c) => (c === 'Tous' ? COUNT : GAMES.filter((g) => g.category === c).length);
   let query = '';
   let cat = 'Tous';
   let freshOnly = false;
+  let favOnly = location.hash.includes('?fav');
+  let ctrl = 'all';
   let sort = 'cat';
 
   render(`
@@ -315,11 +464,18 @@ function renderGames() {
             ${Object.entries(SORTS).map(([k, v]) => `<option value="${k}">${esc(v.label)}</option>`).join('')}
           </select>
         </span>
+        <span class="sort-wrap">
+          <label for="ctrl">Commandes</label>
+          <select id="ctrl" class="sort">
+            ${Object.entries(CONTROLS).map(([k, v]) => `<option value="${k}">${esc(v.label)}</option>`).join('')}
+          </select>
+        </span>
       </div>
       <div class="toolbar-row chips" role="group" aria-label="Filtrer les bornes">
         ${cats.map((c) => `
           <button class="chip" type="button" data-cat="${esc(c)}" aria-pressed="${c === 'Tous'}">${esc(c)}<small>${countOf(c)}</small></button>
         `).join('')}
+        <button class="chip chip-ghost" type="button" id="only-fav" aria-pressed="${favOnly}">★ Favoris<small>${getFavs().length}</small></button>
         <button class="chip chip-ghost" type="button" id="only-new" aria-pressed="false">Jamais jouées</button>
         <button class="chip chip-ghost" type="button" id="shuffle">Au hasard</button>
       </div>
@@ -334,9 +490,13 @@ function renderGames() {
 
   function paint() {
     const q = norm(query.trim());
+    const byCtrl = CONTROLS[ctrl]?.fn;
+    const favs = getFavs();
     let hits = GAMES.filter((g) => (
       (cat === 'Tous' || g.category === cat) &&
       (!freshOnly || !hasPlayed(g.id)) &&
+      (!favOnly || favs.includes(g.id)) &&
+      (!byCtrl || byCtrl(g)) &&
       (!q || norm(`${g.name} ${g.category} ${g.description}`).includes(q))
     ));
     const by = SORTS[sort]?.fn;
@@ -353,6 +513,8 @@ function renderGames() {
     const tags = [];
     if (query.trim()) tags.push(`<span>« ${esc(query.trim())} »</span>`);
     if (cat !== 'Tous') tags.push(`<span>${esc(cat)}</span>`);
+    if (favOnly) tags.push('<span>★ Favoris</span>');
+    if (ctrl !== 'all') tags.push(`<span>${esc(CONTROLS[ctrl].label)}</span>`);
     if (freshOnly) tags.push('<span>Jamais jouées</span>');
     if (sort !== 'cat') tags.push(`<span>${esc(SORTS[sort].label)}</span>`);
     line.innerHTML = `
@@ -360,12 +522,19 @@ function renderGames() {
       ${tags.length ? `<span class="active-filters">${tags.join('')}</span>
         <button class="btn btn-sm" type="button" data-clear>Tout effacer</button>` : ''}`;
     app.querySelectorAll('[data-clear]').forEach((b) => b.addEventListener('click', clearAll));
+    // A borne un-starred while the favourites filter is on must leave the grid at once.
+    bindFavs(grid, () => {
+      app.querySelector('#only-fav').querySelector('small').textContent = getFavs().length;
+      if (favOnly) paint();
+    });
   }
 
   function clearAll() {
-    query = ''; cat = 'Tous'; freshOnly = false; sort = 'cat';
+    query = ''; cat = 'Tous'; freshOnly = false; favOnly = false; ctrl = 'all'; sort = 'cat';
     app.querySelector('#search').value = '';
     app.querySelector('#sort').value = 'cat';
+    app.querySelector('#ctrl').value = 'all';
+    app.querySelector('#only-fav').setAttribute('aria-pressed', 'false');
     app.querySelector('#only-new').setAttribute('aria-pressed', 'false');
     app.querySelectorAll('.chip[data-cat]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.cat === 'Tous')));
     paint();
@@ -377,6 +546,13 @@ function renderGames() {
 
   app.querySelector('#search').addEventListener('input', (e) => { query = e.target.value; paint(); });
   app.querySelector('#sort').addEventListener('change', (e) => { sort = e.target.value; paint(); });
+  app.querySelector('#ctrl').addEventListener('change', (e) => { ctrl = e.target.value; paint(); });
+
+  app.querySelector('#only-fav').addEventListener('click', (e) => {
+    favOnly = !favOnly;
+    e.currentTarget.setAttribute('aria-pressed', String(favOnly));
+    paint();
+  });
 
   app.querySelectorAll('.chip[data-cat]').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -400,10 +576,120 @@ function renderGames() {
   });
 }
 
+/* --- Profile -------------------------------------------------------------- */
+
+function renderProfile() {
+  setPage('Ton profil', 'Ton niveau, tes XP, tes badges, tes défis du jour et l’historique de tes parties — stockés sur ta machine, sans compte.');
+  const p = getProfile();
+  const hist = getHistory();
+  const fmtWhen = (ts) => new Date(ts).toLocaleString('fr-FR', {
+    day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+  });
+  // Les bornes les plus jouées d'abord : c'est la statistique qu'on vient chercher.
+  const perGame = GAMES
+    .map((g) => ({ g, s: gameStats(g.id) }))
+    .filter(({ s }) => s.runs > 0)
+    .sort((a, b) => b.s.runs - a.s.runs);
+
+  render(`
+    <header class="page-head">
+      <span class="eyebrow">Progression · stockée sur cette machine</span>
+      <h1 class="page-title">Ton profil</h1>
+    </header>
+
+    ${xpBar(p)}
+
+    <dl class="stat-row">
+      <div class="stat"><dt>Parties</dt><dd>${fmtScore(p.runs)}</dd></div>
+      <div class="stat"><dt>Victoires</dt><dd>${fmtScore(p.wins)}</dd></div>
+      <div class="stat"><dt>Série</dt><dd>${p.streak} <span class="data">j · record ${p.bestStreak}</span></dd></div>
+      <div class="stat"><dt>Défis remplis</dt><dd>${fmtScore(p.dailies)}</dd></div>
+    </dl>
+
+    <section class="section" style="margin-top:0">
+      <h2 class="section-title">Défis du jour</h2>
+      <div style="margin-top:var(--s4)">${dailyCard()}</div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Badges</h2>
+        <span class="link-more" aria-hidden="true">${p.unlocked.length} / ${BADGES.length}</span>
+      </div>
+      <ul class="badges">
+        ${BADGES.map((b) => {
+          const on = p.unlocked.some((u) => u.id === b.id);
+          return `
+            <li class="badge${on ? ' on' : ''}">
+              <span class="badge-mark" aria-hidden="true">${on ? '★' : '☆'}</span>
+              <span class="badge-txt"><b>${esc(b.name)}</b><span>${esc(b.desc)}</span></span>
+              <span class="sr-only">${on ? 'Débloqué' : 'À débloquer'}</span>
+            </li>`;
+        }).join('')}
+      </ul>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2 class="section-title">Tes dernières parties</h2>
+        <a class="link-more" href="#/scores">Meilleurs scores →</a>
+      </div>
+      ${hist.length ? `
+        <table class="score-table hist">
+          <caption class="sr-only">Les ${hist.length} dernières parties enregistrées</caption>
+          <thead><tr><th scope="col">Borne</th><th scope="col">Score</th><th scope="col">Niveau</th><th scope="col">Quand</th></tr></thead>
+          <tbody>
+            ${hist.map((r) => {
+              const g = getGame(r.id);
+              return `
+                <tr>
+                  <td class="who">${g ? `<a href="#/game/${g.id}">${esc(g.name)}</a>` : esc(r.id)}${r.won ? ' <span class="pill-win">gagné</span>' : ''}</td>
+                  <td class="val">${esc(fmtScore(r.display ?? r.score))}</td>
+                  <td class="when">${esc(levelName(r.diff))}</td>
+                  <td class="when">${fmtWhen(r.date)}</td>
+                </tr>`;
+            }).join('')}
+          </tbody>
+        </table>` : `
+        <div class="empty">
+          <b>Aucune partie enregistrée</b>
+          <span>L’historique se remplit tout seul à la fin de chaque partie.</span>
+          <a class="btn btn-primary" href="#/games">Choisir une borne</a>
+        </div>`}
+    </section>
+
+    ${perGame.length ? `
+      <section class="section">
+        <h2 class="section-title">Par borne</h2>
+        <table class="score-table hist" style="margin-top:var(--s4)">
+          <thead><tr><th scope="col">Borne</th><th scope="col">Parties</th><th scope="col">Victoires</th><th scope="col">Meilleur</th></tr></thead>
+          <tbody>
+            ${perGame.map(({ g, s }) => `
+              <tr>
+                <td class="who"><a href="#/game/${g.id}">${esc(g.name)}</a></td>
+                <td class="val">${fmtScore(s.runs)}</td>
+                <td class="val">${fmtScore(s.wins)}</td>
+                <td class="val">${fmtScore(getAnyBest(g.id) ?? s.best)}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </section>` : ''}
+
+    <section class="section">
+      <h2 class="section-title">Comment ça compte</h2>
+      <div class="rowgrid" style="margin-top:var(--s4)">
+        <div class="note"><b>XP</b><span>Chaque partie rapporte 10 XP, plus la racine de ton score, plus 25 si tu gagnes, plus un bonus de difficulté. Un badge en vaut 100.</span></div>
+        <div class="note"><b>Défis</b><span>Deux par jour, tirés au sort pour tout le monde à la même date, remis à zéro à minuit — heure de ta machine.</span></div>
+        <div class="note"><b>Rien ne sort d’ici</b><span>Niveau, badges et historique vivent dans ce navigateur, comme les scores. Les réglages les effacent pour de bon.</span></div>
+      </div>
+    </section>
+  `);
+}
+
 /* --- Scores --------------------------------------------------------------- */
 
 function renderScores() {
-  setTitle('Meilleurs scores');
+  setPage('Meilleurs scores', 'Tes records borne par borne et par difficulté, gardés dans ce navigateur.');
   const fmtDate = (ts) => new Date(ts).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' });
 
   const played = GAMES.filter((g) => hasPlayed(g.id));
@@ -500,7 +786,7 @@ function renderScores() {
 /* --- Settings ------------------------------------------------------------- */
 
 function renderSettings() {
-  setTitle('Réglages');
+  setPage('Réglages', 'Thème, sons, musique, écran cathodique, animations et effacement des données locales.');
   const s = getSettings();
   // The whole row is the label, so the text is a hit target too; the switch is named by its title.
   const row = (id, title, desc, on) => `
@@ -510,9 +796,14 @@ function renderSettings() {
     </label>`;
 
   const d = dataSummary();
-  const held = d.rows
+  const prog = getProg();
+  // Le bouton efface tout le préfixe arcade: — la progression comprise. Autant le dire.
+  const extra = prog.runs
+    ? ` Aussi ton profil : niveau ${levelOf(prog.xp).level}, ${prog.badges.length} badge${prog.badges.length > 1 ? 's' : ''}, ${prog.favs.length} favori${prog.favs.length > 1 ? 's' : ''} et l’historique de ${prog.runs} partie${prog.runs > 1 ? 's' : ''}.`
+    : '';
+  const held = (d.rows
     ? `${d.rows} score${d.rows > 1 ? 's' : ''} sur ${d.tables} borne${d.tables > 1 ? 's' : ''}, et tes réglages.`
-    : 'Aucun score enregistré pour l’instant — seuls tes réglages seraient effacés.';
+    : 'Aucun score enregistré pour l’instant — seuls tes réglages seraient effacés.') + extra;
 
   render(`
     <header class="page-head">
@@ -556,7 +847,9 @@ function renderSettings() {
     applySettings();
   });
   app.querySelector('#reset-data').addEventListener('click', () => {
-    const what = d.rows ? `${d.rows} score${d.rows > 1 ? 's' : ''} et tes réglages` : 'tes réglages';
+    const what = d.rows
+      ? `${d.rows} score${d.rows > 1 ? 's' : ''}${prog.runs ? ', ton profil (niveau, badges, favoris, historique)' : ''} et tes réglages`
+      : `${prog.runs ? 'ton profil et ' : ''}tes réglages`;
     if (!confirm(`Effacer ${what} sur cette machine ?\n\nCette action est irréversible.`)) return;
     resetAllData();
     applySettings();
@@ -568,7 +861,7 @@ function renderSettings() {
 /* --- About ---------------------------------------------------------------- */
 
 function renderAbout() {
-  setTitle('À propos');
+  setPage('À propos', 'Comment Mini Arcade est fait : site statique, aucun serveur, aucun tracker, moteur de Doom en WebAssembly et bornes maison.');
   const gh = 'https://github.com/itsteeltv/game';
   const ext = (href, label) => `<a href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>`;
   render(`
@@ -585,6 +878,9 @@ function renderAbout() {
       <h2>Freedoom et le moteur de Doom</h2>
       <p>La borne Freedoom fait tourner le vrai moteur de <i>Doom</i> (1993), dont id Software a publié le code source : ici la version ${ext('https://github.com/ozkl/doomgeneric', 'doomgeneric')}, sous licence GNU GPL v2, compilée en WebAssembly. Les modifications pour le navigateur sont dans ${ext(`${gh}/tree/main/tools/doom`, '<code>tools/doom/</code>')} ; le texte de la licence est fourni avec le moteur (${ext(`${gh}/blob/main/js/games/doom/ENGINE-LICENSE.txt`, '<code>ENGINE-LICENSE.txt</code>')}).</p>
       <p>Les niveaux, monstres, sons et musiques sont ceux de ${ext('https://freedoom.github.io/', 'Freedoom')} (licence BSD, ${ext(`${gh}/blob/main/js/games/doom/FREEDOOM-COPYING.txt`, '<code>FREEDOOM-COPYING.txt</code>')}) : un jeu complet, libre et gratuit. Si tu possèdes le <i>Doom</i> original, « Charger mon DOOM.WAD » le lance à la place : le fichier est lu sur ton appareil et n’est jamais envoyé nulle part. DOOM est une marque de ses propriétaires ; ce site n’y est pas affilié.</p>
+
+      <h2>Profil, XP et défis</h2>
+      <p>Chaque partie terminée rapporte de l'XP, fait monter un niveau et peut décrocher un badge. Deux défis sont tirés au sort chaque jour à partir de la date elle-même — les mêmes pour tout le monde, sans que rien ne soit demandé à un serveur — et se remettent à zéro à minuit, à l'heure de ta machine. Tu peux aussi mettre des bornes en favori avec l'étoile de leur carte : elles remontent sur l'accueil et se filtrent dans le catalogue. Tout ça vit dans ce navigateur, au même endroit que les scores : <a href="#/profil">ton profil</a> n'est visible que par toi.</p>
 
       <h2>Vie privée</h2>
       <p>Aucune collecte, aucun tracker, aucune dépendance externe. Rien ne sort du navigateur — et « Effacer les données locales », dans les réglages, efface vraiment tout. Le bouton « Partager » d'un score ne fait que préparer un texte et un lien : rien n'est envoyé tant que tu ne l'envoies pas toi-même.</p>
@@ -605,7 +901,8 @@ function renderGamePage(id) {
   const game = getGame(id);
   if (!game) return renderNotFound('Cette borne n’existe pas — ou plus.');
 
-  setTitle(game.name);
+  setPage(`${game.name} — ${game.category}`, `${game.description} Jouable tout de suite dans le navigateur, au clavier ou aux commandes à l’écran.`);
+  setGameLd(game);
   setLastGame(id);
   let diff = getDifficulty(id);
   const best = getBestLabel(id, diff);
@@ -619,6 +916,8 @@ function renderGamePage(id) {
         <div class="play-bar">
           <a class="back-link" href="#/games" aria-label="Toutes les bornes">Bornes</a>
           <h1 class="play-title">${esc(game.name)}</h1>
+          <button class="btn btn-sm btn-icon fav-btn fav-inline${isFav(id) ? ' on' : ''}" type="button" data-fav="${id}"
+                  aria-pressed="${isFav(id)}" aria-label="${esc(`${isFav(id) ? 'Retirer' : 'Ajouter'} ${game.name} de tes favoris`)}">${STAR}</button>
           ${document.fullscreenEnabled ? `<button class="btn btn-sm btn-icon" type="button" id="fs-btn" aria-label="Plein écran">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>
           </button>` : ''}
@@ -663,6 +962,7 @@ function renderGamePage(id) {
     </section>
   `);
 
+  bindFavs(app);
   const canvas = app.querySelector('#game-canvas');
   const screenEl = app.querySelector('#screen');
 
@@ -777,6 +1077,8 @@ function renderGamePage(id) {
       ? saveScore(id, score, game.higherIsBetter, display, diff, initials)
       : { record: false, rank: -1, date: 0 };
     markPlayed(id);
+    // Progression : XP, badges et défis du jour, pour les bornes qui tiennent un score.
+    const prog = game.custom ? null : addRun({ id, score: Number(score) || 0, won, diff, display });
     const b = getBestLabel(id, diff);
     statBest.textContent = b === null ? '—' : fmtScore(b);
     if (won) sfx.win(); else sfx.gameover();
@@ -790,16 +1092,27 @@ function renderGamePage(id) {
                aria-label="Tes initiales, trois caractères">
       </label>`;
     const shown = fmtScore(display ?? score);
+    // Ce que la partie t'a rapporté, dans l'ordre : l'XP, le niveau, les défis, les badges.
+    const gains = !prog ? '' : `
+      <span class="gains">
+        <span class="gain gain-xp">+${fmtScore(prog.gained)} XP</span>
+        ${prog.levelUp ? `<span class="gain gain-up">Niveau ${prog.level}</span>` : ''}
+        ${prog.daily.map((d) => `<span class="gain gain-daily">${esc(d)}</span>`).join('')}
+        ${prog.badges.map((bg) => `<span class="gain gain-badge">★ ${esc(bg.name)}</span>`).join('')}
+      </span>`;
     showOverlay(
       won ? 'Gagné' : 'Partie terminée',
       `<span class="final-score">${esc(shown)}</span>
-       <span class="overlay-sub">${esc(levelName(diff))}</span>${sign}`,
+       <span class="overlay-sub">${esc(levelName(diff))}</span>${gains}${sign}`,
       'Rejouer',
       start,
       res.record ? 'Nouveau record' : res.rank >= 0 ? 'Top 5' : null,
       Number(score) > 0 ? String(shown) : null,
     );
-    announce(`${won ? 'Gagné' : 'Partie terminée'}. Score : ${shown}.${res.record ? ' Nouveau record.' : ''}`);
+    announce(`${won ? 'Gagné' : 'Partie terminée'}. Score : ${shown}.${res.record ? ' Nouveau record.' : ''}${
+      prog ? ` ${prog.gained} XP.${prog.levelUp ? ` Niveau ${prog.level} atteint.` : ''}${
+        prog.badges.length ? ` Badge : ${prog.badges.map((bg) => bg.name).join(', ')}.` : ''}${
+        prog.daily.length ? ` ${prog.daily.join(', ')} rempli.` : ''}` : ''}`);
 
     const field = overlay.querySelector('#initials');
     if (field) {
@@ -1020,13 +1333,15 @@ function renderGamePage(id) {
 const ROUTES = {
   '': renderHome,
   games: renderGames,
+  profil: renderProfile,
   scores: renderScores,
   settings: renderSettings,
   about: renderAbout,
 };
 
 function renderNotFound(msg) {
-  setTitle('Introuvable');
+  // Une page qui n'existe pas ne se déclare pas canonique : elle renvoie vers l'accueil.
+  setPage('Introuvable', DEFAULT_DESC, '#/');
   render(`
     <header class="page-head">
       <span class="eyebrow">Erreur 404</span>
@@ -1048,7 +1363,10 @@ let backNav = false;
 
 function route() {
   const parts = (location.hash.slice(1) || '/').split('/').filter(Boolean);
-  const name = parts[0] || '';
+  // "#/games?fav" is the catalogue with its favourites filter already on: the query
+  // belongs to the page, not to the route name.
+  const name = (parts[0] || '').split('?')[0];
+  setGameLd(null);
   if (name === 'game') {
     if (parts[1]) renderGamePage(parts[1]); else renderNotFound('Il manque le nom de la borne.');
   } else if (Object.hasOwn(ROUTES, name)) ROUTES[name]();

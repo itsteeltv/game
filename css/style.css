@@ -1483,3 +1483,144 @@ body.no-animations .card:hover .card-art img { transform: none; }
   body { background: #fff; color: #000; }
   body::before, body::after { display: none; }
 }
+
+/* --- Favourites, profile, XP, quests, badges ------------------------------ */
+/* A cabinet now sits in a tile, so the star can be a real button beside the link
+   instead of an illegal button inside an anchor. */
+.tile { position: relative; display: flex; }
+.tile > .card { flex: 1; min-width: 0; }
+
+.fav-btn {
+  position: absolute;
+  top: var(--s3);
+  right: var(--s3);
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 32px; height: 32px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--screen) 72%, transparent);
+  backdrop-filter: blur(4px);
+  color: var(--text-3);
+  cursor: pointer;
+  transition: color var(--d2) var(--ease), transform var(--d2) var(--ease), border-color var(--d2) var(--ease);
+}
+.fav-btn svg { width: 17px; height: 17px; fill: currentColor; }
+.fav-btn:hover, .fav-btn:focus-visible { color: var(--amber); border-color: var(--amber); transform: scale(1.08); }
+.fav-btn.on { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 55%, var(--line)); }
+/* The "Nouveau" marquee tag shares that corner: it steps aside for the star. */
+.tile .tag { right: calc(var(--s3) + 38px); }
+.tile .tag-played { right: var(--s3); }
+/* On the play bar the same button is just a button in the row. */
+.fav-inline { position: static; width: 34px; height: 34px; border-radius: var(--r1); backdrop-filter: none; }
+
+.xp {
+  padding: var(--s4) var(--s5);
+  border: 1px solid var(--line);
+  border-radius: var(--r3);
+  background: var(--surface);
+}
+.xp-head { display: flex; align-items: baseline; gap: var(--s3); flex-wrap: wrap; margin-bottom: var(--s3); }
+.xp-level { color: var(--accent); font-size: var(--t-md); font-weight: 800; }
+:root[data-theme="light"] .xp-level { color: var(--accent-text); }
+.xp-title { color: var(--text-2); font-size: var(--t-sm); }
+.xp-num { margin-left: auto; color: var(--text-3); font-size: var(--t-xs); font-variant-numeric: tabular-nums; }
+.xp-track {
+  height: 10px;
+  border-radius: var(--pill);
+  background: color-mix(in srgb, var(--text-3) 24%, transparent);
+  overflow: hidden;
+}
+.xp-track i {
+  display: block;
+  height: 100%;
+  border-radius: var(--pill);
+  background: linear-gradient(90deg, var(--flame), var(--amber));
+  transition: width var(--d3) var(--ease);
+}
+
+/* The daily goals: a short list you can tick off, in the borne's own ink. */
+.quest {
+  margin-top: var(--s4);
+  padding: var(--s4) var(--s5);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--ink);
+  border-radius: var(--r3);
+  background: var(--surface);
+}
+.quest-head { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
+.quest-head .btn { margin-left: auto; }
+.quest-list { list-style: none; display: grid; gap: var(--s2); margin: var(--s3) 0 0; padding: 0; }
+.quest-list li { display: flex; align-items: center; gap: var(--s3); color: var(--text-2); font-size: var(--t-sm); }
+.quest-mark { flex: none; width: 18px; color: var(--text-3); font-weight: 800; }
+.quest-list li.done { color: var(--text); }
+.quest-list li.done .quest-mark { color: var(--ok); }
+.quest-label { flex: 1; min-width: 0; }
+.quest-xp { flex: none; color: var(--amber); font-size: var(--t-xs); font-weight: 700; }
+:root[data-theme="light"] .quest-xp { color: color-mix(in srgb, var(--amber) 85%, #000); }
+
+.badges {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(234px, 1fr));
+  gap: var(--s3);
+  margin: var(--s4) 0 0;
+  padding: 0;
+}
+.badge {
+  display: flex;
+  gap: var(--s3);
+  padding: var(--s3) var(--s4);
+  border: 1px solid var(--line);
+  border-radius: var(--r2);
+  background: var(--surface);
+}
+.badge:not(.on) { opacity: 0.6; }
+.badge.on { border-color: color-mix(in srgb, var(--amber) 42%, var(--line)); }
+.badge-mark { flex: none; color: var(--text-3); font-size: 1.1rem; line-height: 1.2; }
+.badge.on .badge-mark { color: var(--amber); }
+.badge-txt b { display: block; font-size: var(--t-sm); }
+.badge-txt span { color: var(--text-2); font-size: var(--t-xs); }
+
+/* What the run just paid, on the game-over screen. */
+.gains { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s2); margin-top: var(--s3); }
+.gain { padding: 3px var(--s2); border-radius: var(--pill); font-size: var(--t-xs); font-weight: 700; }
+.gain-xp { background: color-mix(in srgb, var(--amber) 22%, transparent); color: var(--amber); }
+.gain-up { background: var(--amber); color: var(--on-ink); }
+.gain-daily { background: color-mix(in srgb, var(--ok) 22%, transparent); color: var(--ok); }
+.gain-badge { background: color-mix(in srgb, var(--grape) 26%, transparent); color: var(--grape); }
+
+/* Run history and per-borne statistics. */
+.hist { width: 100%; margin-top: var(--s4); border-collapse: collapse; }
+.hist thead th {
+  color: var(--text-3);
+  font-size: var(--t-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-align: left;
+  text-transform: uppercase;
+  padding-bottom: var(--s2);
+}
+.hist th:not(:first-child), .hist td:not(:first-child) { text-align: right; }
+.hist td { padding: var(--s2) 0; border-top: 1px solid var(--line); font-size: var(--t-sm); }
+.hist td.val { font-variant-numeric: tabular-nums; }
+.hist a { color: var(--text); text-decoration: none; }
+.hist a:hover { color: var(--accent); text-decoration: underline; }
+.pill-win {
+  padding: 1px 6px;
+  border-radius: var(--pill);
+  background: color-mix(in srgb, var(--ok) 22%, transparent);
+  color: var(--ok);
+  font-size: 0.625rem;
+  font-weight: 800;
+}
+
+@media (max-width: 900px) {
+  /* Six tabs under the thumb: the labels give up a little size, never the hit area. */
+  .rail-nav a { font-size: 0.625rem; }
+  .fav-btn { width: 30px; height: 30px; }
+  .tile .tag { right: calc(var(--s3) + 34px); }
+  .xp, .quest { padding: var(--s4); }
+}

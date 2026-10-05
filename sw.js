@@ -4,7 +4,7 @@
 // cache answers when there is none.
 // Freedoom's 28 MB WAD is left out on purpose: it lands in the cache the first
 // time someone plays that borne, so only players who want it pay for it.
-const CACHE = 'mini-arcade-v7';
+const CACHE = 'mini-arcade-v8';
 
 const SHELL = [
   './',
@@ -15,6 +15,7 @@ const SHELL = [
   'js/audio.js',
   'js/catalog.js',
   'js/storage.js',
+  'js/progress.js',
   'img/og.png',
   'img/icons/apple-touch-icon.png',
   'img/icons/icon-192.png',
