@@ -33,7 +33,6 @@ labyrinthe et sons sont dessinés ou synthétisés pour ce site.
 | **Bombes** | 1983 | Nouvelle. Labyrinthe de piliers, briques destructibles, sortie et bonus cachés dessous, explosions en chaîne qui ne t'épargnent pas |
 | **Éboulis** | 1984 | Nouvelle. Grotte à creuser, rochers qui tombent et roulent sur les dos ronds, quota de diamants et chrono avant la sortie |
 | **Tuyaux** | 1989 | Nouvelle. File de pièces imposée, compte à rebours avant le lâcher d'eau, croix réutilisable une fois, fuite = essai perdu |
-| **Flipper Cadet de l'Espace** | 1995 | Dans l'esprit du flipper 3D livré avec Windows : neuf grades de Cadet à Amiral de la flotte, missions à trois objectifs allumés, jauge de carburant qui se vide pendant la mission, cinq cibles CARBURANT, trois couloirs de rentrée, trou d'hyperespace qui renvoie au lanceur, multibille à chaque promotion, lanceur à ressort qu'on charge — et le tilt si tu secoues trois fois de trop |
 | **Colonnes** | 1990 | Nouvelle. Colonne de trois gemmes dont tu permutes les couleurs en vol, alignements en diagonale compris, chaînes qui paient double |
 | **Foreuse** | 1982 | Nouvelle. Quatre strates, galeries creusées à la demande, harpon qui gonfle les bestioles en quatre appuis, rochers qui écrasent (×5) et bestioles qui traversent la terre |
 | **Échelles** | 1983 | Nouvelle. Or à ramasser, gardiens qui chassent, briques à creuser en diagonale qui se rebouchent toutes seules, cordes, échelle de fuite une fois l'or pris ; deux plans dessinés à la main, joués aussi en miroir |
@@ -138,10 +137,11 @@ scores — aucun compte, aucun serveur.
 
 - **Installer** : iPhone → Partager → « Sur l'écran d'accueil ». Android → menu → « Installer
   l'application ». Elle s'ouvre alors en plein écran et **fonctionne hors ligne** (`sw.js`).
-- **Jouer** : croix et boutons sous les pouces ; glissements sur l'écran pour Serpent, 2048,
-  Croque-Labyrinthe, Traversée et Tetris ; raquette au doigt pour Pong et Casse-Brique ;
-  volant au doigt pour Rallye, moitié gauche / moitié
-  droite de l'écran pour les flips du Flipper ; toucher l'écran pour Riposte. Téléphone tourné : disposition console portable.
+- **Jouer** : croix, joystick et boutons sous les pouces — joystick pour Croque-Labyrinthe
+  (quatre directions) et Tetris (gauche/droite, avec boutons dédiés Tourner et Descente
+  douce) ; glissements sur l'écran pour Serpent, 2048, Croque-Labyrinthe, Traversée et
+  Tetris ; raquette au doigt pour Pong et Casse-Brique ; volant au doigt pour Rallye ;
+  toucher l'écran pour Riposte. Téléphone tourné : disposition console portable.
 - L'écran reste allumé pendant une partie, la partie se met en pause si tu changes d'app,
   et un bouton plein écran apparaît quand le navigateur le permet (Android, ordinateur).
 

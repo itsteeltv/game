@@ -309,7 +309,7 @@ function renderHome() {
   const fresh = GAMES.filter((g) => g.new);
   const ranked = GAMES.filter((g) => getAnyBest(g.id) !== null);
   const total = ranked.reduce((sum, g) => sum + (getAnyBest(g.id) || 0), 0);
-  const starters = ['tetris', 'pacman', 'bombes', 'pyramide', 'flipper', 'eboulis', 'tuyaux', 'breakout']
+  const starters = ['tetris', 'pacman', 'bombes', 'pyramide', 'invaders', 'eboulis', 'tuyaux', 'breakout']
     .map(getGame).filter(Boolean);
   const picks = played.length ? played.slice(0, 10) : starters;
   // One shelf per genre, in catalogue order, so the whole hall is reachable from here.
@@ -433,8 +433,8 @@ const CONTROLS = {
   all:  { label: 'Toutes les commandes', fn: null },
   one:  { label: 'Une seule touche', fn: (g) => !g.touch?.pad && (g.touch?.actions?.length ?? 0) === 1 },
   point: { label: 'Souris ou doigt seul', fn: (g) => !g.touch?.pad && !g.touch?.actions?.length },
-  lr:   { label: 'Gauche / droite', fn: (g) => g.touch?.pad === 'lr' || g.touch?.pad === 'ud' },
-  dpad: { label: 'Quatre directions', fn: (g) => g.touch?.pad === 'dpad' },
+  lr:   { label: 'Gauche / droite', fn: (g) => g.touch?.pad === 'lr' || g.touch?.pad === 'ud' || g.touch?.pad === 'joystick-lr' || g.touch?.pad === 'joystick-ud' },
+  dpad: { label: 'Quatre directions', fn: (g) => g.touch?.pad === 'dpad' || g.touch?.pad === 'joystick' },
 };
 
 function renderGames() {
@@ -1257,6 +1257,15 @@ function renderGamePage(id) {
         <button class="pad-btn" type="button" data-a="up" aria-label="Haut">↑</button>
         <button class="pad-btn" type="button" data-a="down" aria-label="Bas">↓</button>
       </div>`,
+      joystick: `<div class="joystick" data-joy data-dirs="up,down,left,right" aria-hidden="true">
+        <div class="joystick-base"><div class="joystick-thumb"></div></div>
+      </div>`,
+      'joystick-lr': `<div class="joystick" data-joy data-dirs="left,right" aria-hidden="true">
+        <div class="joystick-base"><div class="joystick-thumb"></div></div>
+      </div>`,
+      'joystick-ud': `<div class="joystick" data-joy data-dirs="up,down" aria-hidden="true">
+        <div class="joystick-base"><div class="joystick-thumb"></div></div>
+      </div>`,
     };
     const actions = (spec.actions || [])
       .map((b) => `<button class="action-btn" type="button" data-a="${b.a}" aria-label="${esc(b.aria)}">${esc(b.label)}</button>`)
@@ -1276,6 +1285,52 @@ function renderGamePage(id) {
       btn.addEventListener('pointerup', send(false));
       btn.addEventListener('pointercancel', send(false));
       btn.addEventListener('pointerleave', send(false));
+    });
+
+    // Joystick: a dragged thumb mapped to the same discrete up/down/left/right
+    // actions the d-pad sends — direct 1:1 tracking while held, snap back on release.
+    wrap.querySelectorAll('[data-joy]').forEach((joy) => {
+      const dirs = joy.dataset.dirs.split(',');
+      const base = joy.querySelector('.joystick-base');
+      const thumb = joy.querySelector('.joystick-thumb');
+      const RADIUS = 32, DEADZONE = 14;
+      let active = null, pointerId = null;
+
+      const setDir = (dir) => {
+        if (dir === active) return;
+        if (active) controller?.input(active, false);
+        if (dir) controller?.input(dir, true);
+        active = dir;
+      };
+      const update = (x, y) => {
+        const r = base.getBoundingClientRect();
+        const dx = x - (r.left + r.width / 2), dy = y - (r.top + r.height / 2);
+        const dist = Math.hypot(dx, dy) || 1;
+        const clamped = Math.min(dist, RADIUS);
+        thumb.style.transform = `translate(${(dx / dist) * clamped}px, ${(dy / dist) * clamped}px)`;
+        let dir = null;
+        if (dist > DEADZONE) {
+          dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+          if (!dirs.includes(dir)) dir = null;
+        }
+        setDir(dir);
+      };
+      const release = () => { setDir(null); pointerId = null; joy.classList.remove('dragging'); thumb.style.transform = ''; };
+
+      joy.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        pointerId = e.pointerId;
+        joy.setPointerCapture(pointerId);
+        joy.classList.add('dragging');
+        update(e.clientX, e.clientY);
+      });
+      joy.addEventListener('pointermove', (e) => {
+        if (e.pointerId !== pointerId) return;
+        e.preventDefault();
+        update(e.clientX, e.clientY);
+      });
+      joy.addEventListener('pointerup', (e) => { if (e.pointerId === pointerId) release(); });
+      joy.addEventListener('pointercancel', (e) => { if (e.pointerId === pointerId) release(); });
     });
   }
 

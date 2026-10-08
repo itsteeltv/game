@@ -1288,6 +1288,30 @@ kbd {
 .dpad [data-a="left"]  { grid-area: 2 / 1; }
 .dpad [data-a="right"] { grid-area: 2 / 3; }
 .dpad [data-a="down"]  { grid-area: 3 / 2; }
+.joystick { width: 116px; height: 116px; display: grid; place-items: center; touch-action: none; }
+.joystick-base {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 10%, transparent);
+}
+.joystick-thumb {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 56px;
+  height: 56px;
+  margin: -28px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--ink) 24%, var(--surface-3));
+  border: 1px solid color-mix(in srgb, var(--ink) 48%, transparent);
+  box-shadow: 0 0 18px -10px var(--ink);
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.joystick.dragging .joystick-thumb { transition: none; }
 .pad-row { display: flex; gap: var(--s2); }
 .pad-row .pad-btn { width: 76px; height: 64px; }
 .pad-btn, .action-btn {
@@ -1397,7 +1421,9 @@ kbd {
 
 /* Phone, game page: the whole stage fits the screen, controls under the thumbs. */
 @media (max-width: 900px) and (pointer: coarse) {
-  body[data-view="game"] #app { padding: var(--s3) var(--s3) var(--s4); }
+  /* The tab bar steps out of the way on the game page, so the thumb controls
+     would otherwise sit under the home indicator — give that strip back. */
+  body[data-view="game"] #app { padding: var(--s3) var(--s3) calc(var(--s4) + env(safe-area-inset-bottom)); }
   body[data-view="game"] .site-footer { display: none; }
   /* Bar, screen, readout and pads together have to fit between the top bar and the
      bottom of the screen — the options and the help are what you scroll to. */
@@ -1412,6 +1438,7 @@ kbd {
 
 @media (max-width: 420px) {
   .dpad { grid-template-columns: repeat(3, 52px); grid-template-rows: repeat(3, 52px); }
+  .joystick { width: 100px; height: 100px; }
   .action-btn { min-width: 60px; height: 60px; }
   .readout dt { font-size: 0.625rem; }
   .hero { padding: var(--s4); }
@@ -1430,7 +1457,7 @@ kbd {
   body[data-view="game"] .screen { grid-column: 2; max-height: calc(100dvh - var(--s5)); }
   body[data-view="game"] .readout { grid-column: 2; grid-row: 2; }
   body[data-view="game"] .touch-controls.enabled { display: contents; }
-  body[data-view="game"] .dpad { grid-column: 1; grid-row: 1 / span 2; }
+  body[data-view="game"] .dpad, body[data-view="game"] .joystick { grid-column: 1; grid-row: 1 / span 2; }
   body[data-view="game"] .pad-row { grid-column: 1; grid-row: 1 / span 2; flex-direction: column; }
   body[data-view="game"] .action-btns { grid-column: 3; grid-row: 1 / span 2; flex-direction: column; max-width: none; }
   body[data-view="game"] .play-options, body[data-view="game"] .help { display: none; }

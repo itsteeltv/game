@@ -37,7 +37,6 @@ const DEMO = {
   motus: { wait: 700, keys: [['a', 60], ['r', 60], ['b', 60]] },
   defense: { wait: 5200, best: 22, taps: [[0.125, 0.45], [0.21, 0.65], [0.375, 0.35], [0.70, 0.28], [0.70, 0.75]] },
   caverne: { wait: 900, keys: [['ArrowRight', 700], [' ', 120], ['ArrowRight', 400]] },
-  flipper: { wait: 2600, best: 22, keys: [[' ', 520], ['ArrowLeft', 160], ['ArrowRight', 160], ['ArrowLeft', 160]] },
   rally: { wait: 2600, best: 20, keys: [['ArrowRight', 260], ['ArrowLeft', 300]] },
   plateformes: { wait: 1600, best: 14, keys: [['ArrowRight', 420], [' ', 120], ['ArrowRight', 300]] },
   bombes: { wait: 2000, best: 16, keys: [['ArrowRight', 300], [' ', 60], ['ArrowLeft', 200], ['ArrowDown', 400], ['ArrowRight', 500]] },

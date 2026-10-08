@@ -10,7 +10,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const COVERS = ['tetris', 'pacman', 'flipper', 'pyramide', 'bombes', 'eboulis', 'invaders', 'tuyaux'];
+const COVERS = ['tetris', 'pacman', 'colonnes', 'pyramide', 'bombes', 'eboulis', 'invaders', 'tuyaux'];
 
 function findChrome() {
   const list = [
